@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Desktop Environment</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="file-tree" class="panel">
+      <div class="panel-header">Files</div>
+      <div class="panel-content" id="file-tree-content">
+      </div>
+    </div>
+    <div id="document-panel" class="panel">
+      <div class="panel-header">
+        <div id="doc-tabs"></div>
+      </div>
+      <div class="panel-content" id="document-content">
+        <div class="placeholder">Select a file to view</div>
+      </div>
+    </div>
+    <div id="chat-panel" class="panel">
+      <div class="panel-header">Chat</div>
+      <div class="panel-content" id="chat-messages">
+      </div>
+      <div id="chat-input-area">
+        <textarea id="chat-input" placeholder="Type a message..." rows="3"></textarea>
+        <button id="chat-send">Send</button>
+      </div>
+    </div>
+  </div>
+  <script src="/static/js/marked.min.js"></script>
+  <script src="/static/js/document.js"></script>
+  <script src="/static/js/filetree.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
