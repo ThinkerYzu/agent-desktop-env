@@ -26,10 +26,10 @@
     var existing = openTabs.find(function(t) { return t.path === path; });
     if (existing) {
       switchTab(path);
-      return;
+      return Promise.resolve();
     }
 
-    fetch('/api/file?path=' + encodeURIComponent(path))
+    return fetch('/api/file?path=' + encodeURIComponent(path))
       .then(function(r) { return r.text(); })
       .then(function(text) {
         var tab = { path: path, content: text, scrollTop: 0 };

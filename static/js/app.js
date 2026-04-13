@@ -128,21 +128,24 @@
     var active = workspace.activeTab;
     var scrolls = workspace.scrollPositions || {};
 
+    // Open tabs sequentially to preserve order
+    var chain = Promise.resolve();
     tabs.forEach(function(path) {
-      window.DocPanel.openFile(path);
+      chain = chain.then(function() {
+        return window.DocPanel.openFile(path);
+      });
     });
 
-    if (active) {
-      setTimeout(function() {
+    chain.then(function() {
+      // Switch to active tab after all tabs are loaded
+      if (active) {
         window.DocPanel.openFile(active);
-        // Restore scroll positions after documents load
-        setTimeout(function() {
-          if (window.DocPanel.setScrollPositions) {
-            window.DocPanel.setScrollPositions(scrolls);
-          }
-        }, 300);
-      }, 200);
-    }
+      }
+      // Restore scroll positions
+      if (window.DocPanel.setScrollPositions) {
+        window.DocPanel.setScrollPositions(scrolls);
+      }
+    });
   }
 
   // ── Session management ──
