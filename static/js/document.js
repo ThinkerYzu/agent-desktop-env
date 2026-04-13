@@ -5,6 +5,7 @@
   var contentEl = document.getElementById('document-content');
   var openTabs = [];   // [{path, content, scrollTop}]
   var activeTab = null;
+  var currentAnnotation = null; // {file, selectedText, startLine, endLine}
 
   function openFile(path) {
     // If already open, just switch to it
@@ -114,11 +115,59 @@
     }
   }
 
+  // ── Annotation ──
+
+  // Estimate line number from selected text within the raw file content
+  function estimateLineRange(fileContent, selectedText) {
+    var idx = fileContent.indexOf(selectedText);
+    if (idx === -1) return { startLine: null, endLine: null };
+    var before = fileContent.substring(0, idx);
+    var startLine = before.split('\n').length;
+    var endLine = startLine + selectedText.split('\n').length - 1;
+    return { startLine: startLine, endLine: endLine };
+  }
+
+  contentEl.addEventListener('mouseup', function() {
+    var sel = window.getSelection();
+    var text = sel.toString().trim();
+
+    if (!text || !activeTab) {
+      clearAnnotation();
+      return;
+    }
+
+    var tab = openTabs.find(function(t) { return t.path === activeTab; });
+    if (!tab) return;
+
+    var lines = estimateLineRange(tab.content, text);
+
+    currentAnnotation = {
+      file: activeTab,
+      selectedText: text,
+      startLine: lines.startLine,
+      endLine: lines.endLine,
+    };
+
+    // Notify chat panel
+    if (window.Chat && window.Chat.setAnnotation) {
+      window.Chat.setAnnotation(currentAnnotation);
+    }
+  });
+
+  function clearAnnotation() {
+    currentAnnotation = null;
+    if (window.Chat && window.Chat.setAnnotation) {
+      window.Chat.setAnnotation(null);
+    }
+  }
+
   // Expose public API
   window.DocPanel = {
     openFile: openFile,
     updateFile: updateFile,
+    clearAnnotation: clearAnnotation,
     getActiveTab: function() { return activeTab; },
-    getOpenTabs: function() { return openTabs.map(function(t) { return t.path; }); }
+    getOpenTabs: function() { return openTabs.map(function(t) { return t.path; }); },
+    getAnnotation: function() { return currentAnnotation; },
   };
 })();

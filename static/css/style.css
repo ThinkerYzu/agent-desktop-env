@@ -138,6 +138,69 @@ html, body {
   padding: 0;
 }
 
+/* Annotation badge above chat input */
+.annotation-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #2a3a4a;
+  border: 1px solid #3a5a7a;
+  border-radius: 4px;
+  font-size: 12px;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.annotation-badge-file {
+  color: #4fc1ff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.annotation-badge-text {
+  color: #aaa;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.annotation-badge-close {
+  color: #666;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.annotation-badge-close:hover {
+  color: #e0e0e0;
+}
+
+/* Annotation context in chat messages */
+.chat-annotation {
+  background: #1a2a3a;
+  border-left: 2px solid #4fc1ff;
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  border-radius: 2px;
+  font-size: 12px;
+}
+
+.chat-annotation-file {
+  color: #4fc1ff;
+  display: block;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.chat-annotation-text {
+  color: #888;
+  display: block;
+  font-style: italic;
+}
+
 .streaming-cursor {
   display: inline-block;
   width: 6px;
@@ -159,6 +222,7 @@ html, body {
 
 #chat-input-area {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 8px;
   border-top: 1px solid #333;
@@ -233,6 +297,16 @@ html, body {
 
 .tree-children {
   padding-left: 12px;
+}
+
+.tree-highlight {
+  animation: tree-flash 3s ease-out;
+}
+
+@keyframes tree-flash {
+  0%   { background: #4a6a2a; }
+  70%  { background: #4a6a2a; }
+  100% { background: transparent; }
 }
 
 /* Document tabs */
@@ -351,6 +425,96 @@ html, body {
   border: none;
   border-top: 1px solid #333;
   margin: 1.2em 0;
+}
+
+/* Session picker overlay */
+#session-picker {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+#session-picker-dialog {
+  background: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 16px;
+  width: 400px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.session-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #e0e0e0;
+  margin-bottom: 12px;
+}
+
+.session-picker-close {
+  cursor: pointer;
+  color: #666;
+  font-size: 18px;
+}
+
+.session-picker-close:hover {
+  color: #e0e0e0;
+}
+
+#session-list {
+  overflow-y: auto;
+  max-height: 40vh;
+  margin-bottom: 12px;
+}
+
+.session-item {
+  padding: 8px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+
+.session-item:hover {
+  background: #3a3a3a;
+}
+
+.session-item-preview {
+  font-size: 13px;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-item-meta {
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+
+#session-new {
+  padding: 8px 16px;
+  background: #007acc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+#session-new:hover {
+  background: #005a9e;
 }
 
 /* Scrollbar styling */

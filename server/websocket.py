@@ -67,6 +67,11 @@ class ConnectionManager:
             # Run agent in background so the WebSocket loop stays responsive
             self._chat_task = asyncio.create_task(self._handle_chat(websocket, msg))
 
+        elif msg_type == "restore_agent_session":
+            agent_session_id = msg.get("payload", {}).get("agentSessionId")
+            if agent_session_id:
+                self.agent.session_id = agent_session_id
+
         elif msg_type == "eval":
             await self.send_to_others(websocket, data)
 
@@ -79,6 +84,26 @@ class ConnectionManager:
         content = payload.get("content", "").strip()
         if not content:
             return
+
+        # Build prompt with annotation context if present
+        annotation = payload.get("annotation")
+        prompt = content
+        if annotation:
+            file_path = annotation.get("file", "")
+            selected = annotation.get("selectedText", "")
+            start = annotation.get("startLine")
+            end = annotation.get("endLine")
+            line_info = ""
+            if start:
+                line_info = f" (lines {start}"
+                if end and end != start:
+                    line_info += f"-{end}"
+                line_info += ")"
+
+            prompt = (
+                f"[The user selected text from {file_path}{line_info}:\n"
+                f"```\n{selected}\n```\n]\n\n{content}"
+            )
 
         # Send streaming chunks back to the client
         async def on_text(chunk):
@@ -104,4 +129,4 @@ class ConnectionManager:
                 },
             }))
 
-        await self.agent.run(content, on_text=on_text, on_done=on_done)
+        await self.agent.run(prompt, on_text=on_text, on_done=on_done)

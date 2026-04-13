@@ -96,9 +96,22 @@
     }, 300);
   }
 
+  function highlightFile(path) {
+    var labels = container.querySelectorAll('.tree-label');
+    for (var i = 0; i < labels.length; i++) {
+      if (labels[i].dataset.path === path) {
+        labels[i].classList.remove('tree-highlight');
+        // Force reflow so the animation restarts if already applied
+        void labels[i].offsetWidth;
+        labels[i].classList.add('tree-highlight');
+        break;
+      }
+    }
+  }
+
   // Load root on startup
   refresh();
 
   // Expose for app.js
-  window.FileTree = { refresh: refresh };
+  window.FileTree = { refresh: refresh, highlightFile: highlightFile };
 })();

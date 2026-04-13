@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from .agent import AgentRunner
 from .websocket import ConnectionManager
 from .file_watcher import watch_project
+from . import session as session_store
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
 PROJECT_DIR = Path(__file__).parent.parent.parent.parent / "proj_docs" / "agent-desktop-env"
@@ -73,6 +74,57 @@ async def get_file(path: str = Query(...)):
         return PlainTextResponse("Not found", status_code=404)
 
     return PlainTextResponse(target.read_text(encoding="utf-8"))
+
+
+# ── Session endpoints ──
+
+
+@app.get("/api/sessions")
+async def list_sessions():
+    """List all sessions."""
+    return {"sessions": session_store.list_sessions()}
+
+
+@app.post("/api/sessions")
+async def create_session():
+    """Create a new session."""
+    return session_store.create_session()
+
+
+@app.get("/api/sessions/{session_id}")
+async def get_session(session_id: str):
+    """Get a full session by ID."""
+    session = session_store.get_session(session_id)
+    if not session:
+        return PlainTextResponse("Not found", status_code=404)
+    return session
+
+
+@app.post("/api/sessions/{session_id}/messages")
+async def add_session_message(session_id: str, body: dict):
+    """Add a message to a session."""
+    session = session_store.add_message(
+        session_id,
+        body.get("role", "user"),
+        body.get("content", ""),
+        body.get("annotation"),
+    )
+    if not session:
+        return PlainTextResponse("Not found", status_code=404)
+    return {"status": "ok"}
+
+
+@app.post("/api/sessions/{session_id}/workspace")
+async def update_session_workspace(session_id: str, body: dict):
+    """Update the workspace state of a session."""
+    session = session_store.update_workspace(
+        session_id,
+        body.get("openTabs", []),
+        body.get("activeTab"),
+    )
+    if not session:
+        return PlainTextResponse("Not found", status_code=404)
+    return {"status": "ok"}
 
 
 @app.websocket("/ws")
