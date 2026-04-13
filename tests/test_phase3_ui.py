@@ -55,9 +55,34 @@ def eval_js(code, timeout=5.0):
 
 
 def reload_and_wait():
-    """Reload the page and wait for it to settle."""
+    """Reload the page with clean state and wait for it to settle."""
+    # Clear localStorage to prevent auto-resume restoring stale tabs
+    eval_js("localStorage.clear()")
     eval_js("location.reload()")
-    time.sleep(1.5)
+    time.sleep(2)
+    # Dismiss session picker if it appears
+    try:
+        eval_js("""
+          (function() {
+            var picker = document.getElementById('session-picker');
+            if (picker && picker.style.display !== 'none') {
+              document.getElementById('session-new').click();
+            }
+          })()
+        """)
+    except Exception:
+        pass
+    time.sleep(0.5)
+    # Close all open tabs to start with a clean document panel
+    eval_js("""
+      (function() {
+        if (window.DocPanel) {
+          var tabs = window.DocPanel.getOpenTabs();
+          tabs.forEach(function(path) { window.DocPanel.closeFile(path); });
+        }
+      })()
+    """)
+    time.sleep(0.3)
 
 
 def get_tree_names():

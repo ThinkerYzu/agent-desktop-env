@@ -231,41 +231,57 @@ class TestAnnotation:
 
 class TestSessionPicker:
 
-    def test_session_picker_shows_on_load_with_sessions(self, client, http):
-        """Session picker appears when there are existing sessions."""
-        # Create a session so there's something to show
+    def test_auto_resumes_last_session(self, client, http):
+        """On page load, auto-resumes the most recent session without showing picker."""
+        # Create a session with a message
         s = http.post("/api/sessions").json()
         http.post(f"/api/sessions/{s['id']}/messages",
-                  json={"role": "user", "content": "picker test"})
+                  json={"role": "user", "content": "auto-resume test"})
 
         try:
-            # Reload page
+            # Clear localStorage and reload
+            client.eval_js("localStorage.clear()")
             client.eval_js("location.reload()")
-            time.sleep(1.5)
-            # Re-establish eval (need new connection since page reloaded)
-            # Actually the persistent connection should still work since
-            # the eval goes through server relay
+            time.sleep(2)
 
+            # Picker should NOT be visible (auto-resumed)
             visible = client.eval_js("""
               (function() {
                 var picker = document.getElementById('session-picker');
                 return picker && picker.style.display !== 'none' ? 'visible' : 'hidden';
               })()
             """)
-            assert visible == "visible"
+            assert visible == "hidden"
 
-            # Verify the session is listed
-            items = client.eval_js("""
+            # Chat should show the restored message
+            msgs = client.eval_js("""
               (function() {
-                var items = document.querySelectorAll('.session-item-preview');
+                var msgs = document.querySelectorAll('.chat-content');
                 var texts = [];
-                items.forEach(function(el) { texts.push(el.textContent); });
+                msgs.forEach(function(el) { texts.push(el.textContent); });
                 return texts.join('|');
               })()
             """)
-            assert "picker test" in items
+            assert "auto-resume test" in msgs
         finally:
             (SESSIONS_DIR / f"{s['id']}.json").unlink(missing_ok=True)
+
+    def test_session_picker_via_button(self, client, http):
+        """Clicking Sessions button shows the session picker."""
+        client.eval_js("""
+          (function() {
+            var btn = document.getElementById('session-switch');
+            if (btn) btn.click();
+          })()
+        """)
+        time.sleep(0.5)
+        visible = client.eval_js("""
+          (function() {
+            var picker = document.getElementById('session-picker');
+            return picker && picker.style.display !== 'none' ? 'visible' : 'hidden';
+          })()
+        """)
+        assert visible == "visible"
 
     def test_new_session_button_dismisses_picker(self, client):
         """Clicking New Session dismisses the picker."""

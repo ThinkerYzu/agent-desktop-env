@@ -78,6 +78,27 @@ html, body {
   background: #252526;
 }
 
+#chat-panel > .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#session-switch {
+  padding: 2px 8px;
+  background: transparent;
+  color: #888;
+  border: 1px solid #444;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+#session-switch:hover {
+  color: #e0e0e0;
+  border-color: #666;
+}
+
 #chat-messages {
   padding: 12px;
 }

@@ -270,18 +270,28 @@
 
   connect();
 
-  // Check for existing sessions on startup
+  // Auto-resume the most recent session, or create a new one
   fetch('/api/sessions').then(function(r) { return r.json(); }).then(function(data) {
     if (data.sessions && data.sessions.length > 0) {
-      showSessionPicker();
+      loadSession(data.sessions[0].id);
     } else {
       startNewSession();
     }
   });
 
   // Wire up session picker buttons
-  document.getElementById('session-new').addEventListener('click', startNewSession);
-  document.getElementById('session-picker-close').addEventListener('click', function() {
+  document.getElementById('session-new').addEventListener('click', function() {
     startNewSession();
+    // Clear chat for new session
+    document.getElementById('chat-messages').innerHTML = '';
   });
+  document.getElementById('session-picker-close').addEventListener('click', function() {
+    document.getElementById('session-picker').style.display = 'none';
+  });
+
+  // Wire up session switch button in chat header
+  var switchBtn = document.getElementById('session-switch');
+  if (switchBtn) {
+    switchBtn.addEventListener('click', showSessionPicker);
+  }
 })();
