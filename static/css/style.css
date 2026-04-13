@@ -299,14 +299,26 @@ html, body {
   padding-left: 12px;
 }
 
-.tree-highlight {
-  animation: tree-flash 3s ease-out;
+.tree-label.tree-highlight {
+  background: #2a5a2a !important;
+  animation: tree-flash 4s ease-out forwards;
+}
+
+.tree-label.tree-highlight .tree-name {
+  color: #7ddf64;
+  animation: tree-flash-text 4s ease-out forwards;
 }
 
 @keyframes tree-flash {
-  0%   { background: #4a6a2a; }
-  70%  { background: #4a6a2a; }
-  100% { background: transparent; }
+  0%   { background: #2a5a2a !important; }
+  60%  { background: #2a5a2a !important; }
+  100% { background: transparent !important; }
+}
+
+@keyframes tree-flash-text {
+  0%   { color: #7ddf64; }
+  60%  { color: #7ddf64; }
+  100% { color: #e0e0e0; }
 }
 
 /* Document tabs */

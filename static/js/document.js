@@ -1,6 +1,20 @@
 (function() {
   'use strict';
 
+  // Configure marked to generate heading IDs for fragment links
+  if (typeof marked !== 'undefined') {
+    var renderer = new marked.Renderer();
+    renderer.heading = function(data) {
+      var id = data.text.toLowerCase()
+        .replace(/<[^>]*>/g, '')
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+$/, '');
+      return '<h' + data.depth + ' id="' + id + '">' + data.text + '</h' + data.depth + '>';
+    };
+    marked.use({ renderer: renderer });
+  }
+
   var tabsEl = document.getElementById('doc-tabs');
   var contentEl = document.getElementById('document-content');
   var openTabs = [];   // [{path, content, scrollTop}]
@@ -104,12 +118,76 @@
     contentEl.scrollTop = tab.scrollTop;
   }
 
+  // Parse href into {path, fragment}
+  function parseLink(href) {
+    var hashIdx = href.indexOf('#');
+    if (hashIdx === -1) return { path: href, fragment: null };
+    return { path: href.substring(0, hashIdx), fragment: href.substring(hashIdx + 1) };
+  }
+
+  // Resolve a link path relative to the current document's directory
+  function resolvePath(path) {
+    if (!activeTab) return null;
+    if (!path) return null;
+    var dir = activeTab.lastIndexOf('/') >= 0
+      ? activeTab.substring(0, activeTab.lastIndexOf('/') + 1)
+      : '';
+    return dir + path;
+  }
+
+  // Scroll to a fragment (anchor) in the rendered document
+  function scrollToFragment(fragment) {
+    if (!fragment) return;
+    // marked.js generates ids from heading text (lowercase, hyphens)
+    var target = contentEl.querySelector('#' + CSS.escape(fragment));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  // Intercept clicks on .md links in rendered documents
+  contentEl.addEventListener('click', function(e) {
+    var link = e.target.closest('a');
+    if (!link) return;
+
+    var href = link.getAttribute('href');
+    if (!href) return;
+
+    // Only intercept relative links (not http://, mailto:)
+    if (/^https?:|^mailto:/.test(href)) return;
+
+    var parsed = parseLink(href);
+
+    // Same-document fragment link (#section)
+    if (!parsed.path && parsed.fragment) {
+      e.preventDefault();
+      scrollToFragment(parsed.fragment);
+      return;
+    }
+
+    // Only intercept .md links
+    if (!parsed.path.endsWith('.md')) return;
+
+    e.preventDefault();
+    var resolved = resolvePath(parsed.path);
+    if (resolved) {
+      openFile(resolved);
+      // Scroll to fragment after the document loads
+      if (parsed.fragment) {
+        // Small delay for the fetch + render to complete
+        setTimeout(function() { scrollToFragment(parsed.fragment); }, 300);
+      }
+    }
+  });
+
   // Update tab content when file changes (called from app.js for live updates)
   function updateFile(path, content) {
     var tab = openTabs.find(function(t) { return t.path === path; });
     if (tab) {
       tab.content = content;
       if (activeTab === path) {
+        // Preserve scroll position across re-render
+        tab.scrollTop = contentEl.scrollTop;
         renderDocument(tab);
       }
     }
@@ -164,6 +242,7 @@
   // Expose public API
   window.DocPanel = {
     openFile: openFile,
+    closeFile: closeTab,
     updateFile: updateFile,
     clearAnnotation: clearAnnotation,
     getActiveTab: function() { return activeTab; },

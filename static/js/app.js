@@ -42,6 +42,10 @@
       if ((payload.event === 'modified' || payload.event === 'created') && payload.content && window.DocPanel) {
         window.DocPanel.updateFile(payload.path, payload.content);
       }
+      // Close tab when file is deleted
+      if (payload.event === 'deleted' && window.DocPanel) {
+        window.DocPanel.closeFile(payload.path);
+      }
       // Refresh file tree on create/delete, then highlight
       if (payload.event === 'created' || payload.event === 'deleted') {
         if (window.FileTree) {

@@ -254,6 +254,78 @@ class TestDocumentViewer:
         """))
         assert count == 1
 
+    def test_md_link_opens_tab(self):
+        """Clicking a .md link in rendered doc opens a new tab instead of navigating."""
+        reload_and_wait()
+        open_file("SPEC.md")
+        # Click the DESIGN.md link in the rendered content
+        result = eval_js("""
+          (function() {
+            var links = document.querySelectorAll('#document-content a');
+            for (var i = 0; i < links.length; i++) {
+              var href = links[i].getAttribute('href');
+              if (href && href.indexOf('DESIGN.md') >= 0) {
+                links[i].click();
+                return 'clicked';
+              }
+            }
+            return 'no link found';
+          })()
+        """)
+        assert "clicked" in result
+        time.sleep(0.5)
+        tabs = get_tab_names()
+        assert "SPEC.md" in tabs
+        assert "DESIGN.md" in tabs
+        # Verify we're still on localhost:9800 (not navigated away)
+        url = eval_js("location.href")
+        assert "localhost:9800" in url
+
+    def test_fragment_link_scrolls(self):
+        """Clicking a #fragment link scrolls to the heading in the same document."""
+        reload_and_wait()
+        open_file("DESIGN.md")
+        eval_js("document.getElementById('document-content').scrollTop = 0")
+        time.sleep(0.3)
+        # Click a TOC fragment link
+        result = eval_js("""
+          (function() {
+            var links = document.querySelectorAll('#document-content a');
+            for (var i = 0; i < links.length; i++) {
+              if (links[i].getAttribute('href') === '#data-model') {
+                links[i].click();
+                return 'clicked';
+              }
+            }
+            return 'no fragment link found';
+          })()
+        """)
+        assert "clicked" in result
+        time.sleep(0.5)
+        scroll = float(eval_js("document.getElementById('document-content').scrollTop"))
+        assert scroll > 100, f"Expected scroll > 100 after fragment click, got {scroll}"
+
+    def test_cross_file_fragment_link(self):
+        """Clicking a file.md#section link opens the file and scrolls to the section."""
+        reload_and_wait()
+        open_file("SPEC.md")
+        # Inject a test link to DESIGN.md#testing-architecture
+        eval_js("""
+          (function() {
+            var link = document.createElement('a');
+            link.href = 'DESIGN.md#testing-architecture';
+            link.textContent = 'test';
+            link.id = '_test_fragment_link';
+            document.getElementById('document-content').appendChild(link);
+          })()
+        """)
+        eval_js("document.getElementById('_test_fragment_link').click()")
+        time.sleep(1)
+        tabs = get_tab_names()
+        assert "DESIGN.md" in tabs
+        scroll = float(eval_js("document.getElementById('document-content').scrollTop"))
+        assert scroll > 100, f"Expected scroll > 100 for cross-file fragment, got {scroll}"
+
 
 # ── Live Update Tests ──
 
@@ -305,6 +377,57 @@ class TestLiveUpdates:
             time.sleep(0.5)
             html = get_doc_html()
             assert "BG V2" in html
+        finally:
+            test_file.unlink(missing_ok=True)
+
+    def test_scroll_preserved_on_live_update(self):
+        """Scroll position is preserved when an open document is updated."""
+        # Create a long file so there's something to scroll
+        test_file = PROJECT_DIR / "_test_ui_scroll.md"
+        lines = ["# Scroll Test\n"] + [f"Line {i}\n" for i in range(200)]
+        test_file.write_text("\n".join(lines))
+        time.sleep(1)
+        try:
+            reload_and_wait()
+            open_file("_test_ui_scroll.md")
+
+            # Scroll to a specific position
+            eval_js("document.getElementById('document-content').scrollTop = 800")
+            time.sleep(0.3)
+            before = float(eval_js("document.getElementById('document-content').scrollTop"))
+            assert before > 700, f"Expected scrollTop > 700, got {before}"
+
+            # Modify the file
+            lines.append("# Appended section\n")
+            test_file.write_text("\n".join(lines))
+            time.sleep(2)
+
+            after = float(eval_js("document.getElementById('document-content').scrollTop"))
+            # Allow small delta from re-render differences
+            assert abs(after - before) < 50, \
+                f"Scroll position not preserved: before={before}, after={after}"
+        finally:
+            test_file.unlink(missing_ok=True)
+
+    def test_tab_closed_on_file_delete(self):
+        """Deleting a file automatically closes its open tab."""
+        test_file = PROJECT_DIR / "_test_ui_closetab.md"
+        test_file.write_text("# Close on delete\n")
+        time.sleep(1)
+        try:
+            reload_and_wait()
+            open_file("SPEC.md")
+            open_file("_test_ui_closetab.md")
+            tabs = get_tab_names()
+            assert "_test_ui_closetab.md" in tabs
+
+            test_file.unlink()
+            time.sleep(2)
+
+            tabs = get_tab_names()
+            assert "_test_ui_closetab.md" not in tabs
+            # Other tab should still be there
+            assert "SPEC.md" in tabs
         finally:
             test_file.unlink(missing_ok=True)
 

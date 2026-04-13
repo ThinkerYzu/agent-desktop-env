@@ -100,10 +100,16 @@
     var labels = container.querySelectorAll('.tree-label');
     for (var i = 0; i < labels.length; i++) {
       if (labels[i].dataset.path === path) {
-        labels[i].classList.remove('tree-highlight');
+        var label = labels[i];
+        label.classList.remove('tree-highlight');
         // Force reflow so the animation restarts if already applied
-        void labels[i].offsetWidth;
-        labels[i].classList.add('tree-highlight');
+        void label.offsetWidth;
+        label.classList.add('tree-highlight');
+        // Clean up class after animation ends so hover styles work again
+        label.addEventListener('animationend', function handler() {
+          label.classList.remove('tree-highlight');
+          label.removeEventListener('animationend', handler);
+        });
         break;
       }
     }
