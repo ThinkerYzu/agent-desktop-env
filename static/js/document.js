@@ -54,6 +54,7 @@
 
     renderTabs();
     renderDocument(tab);
+    notifyWorkspaceChanged();
   }
 
   function closeTab(path) {
@@ -77,6 +78,13 @@
       if (tab) renderDocument(tab);
     } else {
       contentEl.innerHTML = '<div class="placeholder">Select a file to view</div>';
+    }
+    notifyWorkspaceChanged();
+  }
+
+  function notifyWorkspaceChanged() {
+    if (window.App && window.App.saveWorkspace) {
+      window.App.saveWorkspace();
     }
   }
 
@@ -138,10 +146,10 @@
   // Scroll to a fragment (anchor) in the rendered document
   function scrollToFragment(fragment) {
     if (!fragment) return;
-    // marked.js generates ids from heading text (lowercase, hyphens)
     var target = contentEl.querySelector('#' + CSS.escape(fragment));
     if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Calculate offset relative to the scrollable container
+      contentEl.scrollTop = target.offsetTop - contentEl.offsetTop;
     }
   }
 
@@ -248,5 +256,27 @@
     getActiveTab: function() { return activeTab; },
     getOpenTabs: function() { return openTabs.map(function(t) { return t.path; }); },
     getAnnotation: function() { return currentAnnotation; },
+    getScrollPositions: function() {
+      // Save current active tab's scroll before collecting
+      if (activeTab) {
+        var cur = openTabs.find(function(t) { return t.path === activeTab; });
+        if (cur) cur.scrollTop = contentEl.scrollTop;
+      }
+      var positions = {};
+      openTabs.forEach(function(t) { positions[t.path] = t.scrollTop; });
+      return positions;
+    },
+    setScrollPositions: function(positions) {
+      openTabs.forEach(function(t) {
+        if (positions[t.path] !== undefined) {
+          t.scrollTop = positions[t.path];
+        }
+      });
+      // Apply to active tab
+      if (activeTab) {
+        var cur = openTabs.find(function(t) { return t.path === activeTab; });
+        if (cur) contentEl.scrollTop = cur.scrollTop;
+      }
+    },
   };
 })();

@@ -50,7 +50,6 @@
       if (payload.event === 'created' || payload.event === 'deleted') {
         if (window.FileTree) {
           window.FileTree.refresh();
-          // Highlight after refresh rebuilds the DOM (debounce is 300ms + fetch time)
           setTimeout(function() {
             if (payload.event === 'created') {
               window.FileTree.highlightFile(payload.path);
@@ -58,22 +57,18 @@
           }, 600);
         }
       } else if (payload.event === 'modified' && window.FileTree) {
-        // Modified events don't refresh the tree, so highlight immediately
         window.FileTree.highlightFile(payload.path);
       }
     } else if (msg.type === 'chat') {
       if (window.Chat) {
         window.Chat.handleChat(msg.payload);
       }
-      // Save assistant messages to session
       if (msg.payload.role === 'assistant' && !msg.payload.streaming && currentSessionId) {
-        // Save the agent session ID if provided
         if (msg.payload.session_id) {
           saveAgentSessionId(msg.payload.session_id);
         }
       }
     } else if (msg.type === 'eval') {
-      // Test backdoor: execute JS and send result back
       var result = null;
       var error = null;
       try {
@@ -95,25 +90,73 @@
     }
   }
 
+  // ── localStorage workspace persistence ──
+
+  function workspaceKey() {
+    return currentSessionId ? 'ade_workspace_' + currentSessionId : null;
+  }
+
+  function saveWorkspaceToLocal() {
+    var key = workspaceKey();
+    if (!key || !window.DocPanel) return;
+    var state = {
+      openTabs: window.DocPanel.getOpenTabs(),
+      activeTab: window.DocPanel.getActiveTab(),
+      scrollPositions: window.DocPanel.getScrollPositions ? window.DocPanel.getScrollPositions() : {},
+    };
+    try {
+      localStorage.setItem(key, JSON.stringify(state));
+    } catch (e) {
+      // localStorage full or unavailable — ignore
+    }
+  }
+
+  function loadWorkspaceFromLocal() {
+    var key = workspaceKey();
+    if (!key) return null;
+    try {
+      var data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function restoreWorkspace(workspace) {
+    if (!workspace || !window.DocPanel) return;
+    var tabs = workspace.openTabs || [];
+    var active = workspace.activeTab;
+    var scrolls = workspace.scrollPositions || {};
+
+    tabs.forEach(function(path) {
+      window.DocPanel.openFile(path);
+    });
+
+    if (active) {
+      setTimeout(function() {
+        window.DocPanel.openFile(active);
+        // Restore scroll positions after documents load
+        setTimeout(function() {
+          if (window.DocPanel.setScrollPositions) {
+            window.DocPanel.setScrollPositions(scrolls);
+          }
+        }, 300);
+      }, 200);
+    }
+  }
+
   // ── Session management ──
 
   function saveAgentSessionId(agentSessionId) {
     if (!currentSessionId) return;
-    fetch('/api/sessions/' + currentSessionId, {
-      method: 'GET',
-    }).then(function(r) { return r.json(); }).then(function(session) {
-      if (session.id) {
-        session.agentSessionId = agentSessionId;
-        // Save via workspace endpoint (piggyback)
-        fetch('/api/sessions/' + currentSessionId + '/workspace', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            openTabs: window.DocPanel ? window.DocPanel.getOpenTabs() : [],
-            activeTab: window.DocPanel ? window.DocPanel.getActiveTab() : null,
-          }),
-        });
-      }
+    fetch('/api/sessions/' + currentSessionId + '/workspace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        openTabs: window.DocPanel ? window.DocPanel.getOpenTabs() : [],
+        activeTab: window.DocPanel ? window.DocPanel.getActiveTab() : null,
+        agentSessionId: agentSessionId,
+      }),
     });
   }
 
@@ -126,7 +169,7 @@
     });
   }
 
-  function saveWorkspace() {
+  function saveWorkspaceToServer() {
     if (!currentSessionId) return;
     fetch('/api/sessions/' + currentSessionId + '/workspace', {
       method: 'POST',
@@ -136,6 +179,17 @@
         activeTab: window.DocPanel ? window.DocPanel.getActiveTab() : null,
       }),
     });
+  }
+
+  // Debounced workspace save — called on tab changes
+  var workspaceSaveTimer = null;
+  function debouncedWorkspaceSave() {
+    if (workspaceSaveTimer) clearTimeout(workspaceSaveTimer);
+    workspaceSaveTimer = setTimeout(function() {
+      workspaceSaveTimer = null;
+      saveWorkspaceToLocal();
+      saveWorkspaceToServer();
+    }, 500);
   }
 
   function showSessionPicker() {
@@ -176,22 +230,17 @@
         }
       });
 
-      // Restore workspace
-      var ws = session.workspace || {};
-      if (ws.openTabs && window.DocPanel) {
-        ws.openTabs.forEach(function(path) {
-          window.DocPanel.openFile(path);
-        });
-        if (ws.activeTab) {
-          setTimeout(function() {
-            window.DocPanel.openFile(ws.activeTab);
-          }, 200);
-        }
+      // Restore workspace — prefer localStorage (has scroll positions), fall back to server
+      var localWs = loadWorkspaceFromLocal();
+      if (localWs && localWs.openTabs && localWs.openTabs.length > 0) {
+        restoreWorkspace(localWs);
+      } else {
+        var serverWs = session.workspace || {};
+        restoreWorkspace(serverWs);
       }
 
       // Restore agent session
       if (session.agentSessionId) {
-        // Tell server to resume this agent session
         send({
           type: 'restore_agent_session',
           payload: { agentSessionId: session.agentSessionId },
@@ -215,7 +264,7 @@
   window.App = {
     send: send,
     saveMessage: saveMessageToSession,
-    saveWorkspace: saveWorkspace,
+    saveWorkspace: debouncedWorkspaceSave,
     getSessionId: function() { return currentSessionId; },
   };
 

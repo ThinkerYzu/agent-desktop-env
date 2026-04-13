@@ -301,7 +301,8 @@ class TestDocumentViewer:
           })()
         """)
         assert "clicked" in result
-        time.sleep(0.5)
+        # Wait for smooth scroll to complete
+        time.sleep(1.5)
         scroll = float(eval_js("document.getElementById('document-content').scrollTop"))
         assert scroll > 100, f"Expected scroll > 100 after fragment click, got {scroll}"
 
@@ -320,7 +321,8 @@ class TestDocumentViewer:
           })()
         """)
         eval_js("document.getElementById('_test_fragment_link').click()")
-        time.sleep(1)
+        # Wait for file load + smooth scroll
+        time.sleep(2)
         tabs = get_tab_names()
         assert "DESIGN.md" in tabs
         scroll = float(eval_js("document.getElementById('document-content').scrollTop"))
