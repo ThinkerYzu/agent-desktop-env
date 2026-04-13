@@ -10,4 +10,4 @@ else
     source venv/bin/activate
 fi
 
-exec uvicorn server.main:app --host 127.0.0.1 --port 9800 --reload
+exec uvicorn server.main:app --host 127.0.0.1 --port 9800 --reload --reload-dir server --reload-dir static

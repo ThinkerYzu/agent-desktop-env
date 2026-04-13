@@ -82,6 +82,81 @@ html, body {
   padding: 12px;
 }
 
+.chat-message {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.chat-message-user {
+  background: #2a3a4a;
+}
+
+.chat-message-assistant {
+  background: #2d2d2d;
+}
+
+.chat-role {
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chat-message-user .chat-role {
+  color: #4fc1ff;
+}
+
+.chat-message-assistant .chat-role {
+  color: #89d185;
+}
+
+.chat-content {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chat-content p { margin-bottom: 0.5em; }
+.chat-content p:last-child { margin-bottom: 0; }
+.chat-content code {
+  background: #1e1e1e;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+.chat-content pre {
+  background: #1e1e1e;
+  padding: 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+.chat-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.streaming-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 14px;
+  background: #4fc1ff;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: blink 0.8s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+#chat-input:disabled, #chat-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 #chat-input-area {
   display: flex;
   gap: 8px;

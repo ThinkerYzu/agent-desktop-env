@@ -37,7 +37,8 @@
   function handleMessage(msg) {
     if (msg.type === 'doc_update') {
       var payload = msg.payload;
-      if (payload.event === 'modified' && payload.content && window.DocPanel) {
+      // Update open document on modify or create (atomic writes show as delete+create)
+      if ((payload.event === 'modified' || payload.event === 'created') && payload.content && window.DocPanel) {
         window.DocPanel.updateFile(payload.path, payload.content);
       }
       // Refresh file tree on create/delete
@@ -45,6 +46,10 @@
         if (window.FileTree) {
           window.FileTree.refresh();
         }
+      }
+    } else if (msg.type === 'chat') {
+      if (window.Chat) {
+        window.Chat.handleChat(msg.payload);
       }
     } else if (msg.type === 'eval') {
       // Test backdoor: execute JS and send result back

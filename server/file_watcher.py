@@ -1,7 +1,10 @@
 import asyncio
 import json
+import logging
 from pathlib import Path
 from watchfiles import awatch, Change
+
+logger = logging.getLogger(__name__)
 
 
 async def watch_project(project_dir: Path, broadcast_fn):
@@ -40,5 +43,6 @@ async def watch_project(project_dir: Path, broadcast_fn):
                 except Exception:
                     pass
 
+            logger.info(f"File watcher: {event} {rel_path}")
             message = json.dumps({"type": "doc_update", "payload": payload})
             await broadcast_fn(message)

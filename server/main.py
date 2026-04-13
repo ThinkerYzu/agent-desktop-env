@@ -6,13 +6,15 @@ from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, PlainTextResponse
 
+from .agent import AgentRunner
 from .websocket import ConnectionManager
 from .file_watcher import watch_project
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
 PROJECT_DIR = Path(__file__).parent.parent.parent.parent / "proj_docs" / "agent-desktop-env"
 
-manager = ConnectionManager()
+agent = AgentRunner(PROJECT_DIR)
+manager = ConnectionManager(agent)
 
 
 @asynccontextmanager
