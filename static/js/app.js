@@ -269,6 +269,8 @@
       .then(function(session) {
         currentSessionId = session.id;
         document.getElementById('session-picker').style.display = 'none';
+        // Reset agent session so it doesn't --resume the old one
+        send({ type: 'reset_agent_session' });
         // Initialize agent with warm-up file if it exists
         initAgentWithWarmup();
       });
