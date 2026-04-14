@@ -2,6 +2,8 @@
 
 A web application that puts an AI coding agent and your project documents side by side. Browse files, view rendered markdown, and chat with a Claude-powered agent — all in one window, with real-time updates as files change.
 
+![Screenshot — file tree, document viewer, and chat side by side](screenshot.png)
+
 ## What It Does
 
 - **Three-panel layout** — file tree on the left, document viewer in the center, chat on the right
