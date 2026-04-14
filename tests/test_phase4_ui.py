@@ -195,3 +195,21 @@ class TestChatRendering:
         html = get_last_agent_html(client)
         # Even a simple response gets wrapped in <p> by marked.js
         assert "<" in html, f"Expected HTML tags in response, got: {html}"
+
+    def test_tool_use_rendered_in_chat(self, client):
+        """A prompt triggering tool use shows tool blocks in the chat panel."""
+        clear_chat(client)
+        send_chat(client, "list files in the current directory using ls")
+        wait_for_response(client, timeout=60)
+        tool_count = int(client.eval_js(
+            "document.querySelectorAll('.chat-tool-use').length"
+        ))
+        assert tool_count >= 1, "Expected at least one .chat-tool-use block"
+        # Verify it has a tool name
+        tool_name = client.eval_js("""
+          (function() {
+            var el = document.querySelector('.chat-tool-name');
+            return el ? el.textContent : '';
+          })()
+        """)
+        assert len(tool_name) > 0, "Tool use block should have a tool name"

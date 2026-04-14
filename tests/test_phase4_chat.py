@@ -119,6 +119,33 @@ def test_chat_empty_message_ignored():
     asyncio.run(_test())
 
 
+def test_tool_use_events_received():
+    """A prompt that triggers tool use should emit tool_use and tool_result events."""
+    async def _test():
+        async with websockets.connect(WS_URL) as ws:
+            await ws.send(json.dumps({
+                "type": "chat",
+                "payload": {"role": "user", "content": "list files in the current directory using ls"},
+            }))
+
+            roles_seen = set()
+            while True:
+                msg = await asyncio.wait_for(ws.recv(), timeout=60.0)
+                data = json.loads(msg)
+                if data["type"] != "chat":
+                    continue
+                role = data["payload"].get("role", "")
+                roles_seen.add(role)
+                # Done when we get the final non-streaming assistant message
+                if role == "assistant" and not data["payload"].get("streaming"):
+                    break
+
+            assert "tool_use" in roles_seen, f"Expected tool_use event, got roles: {roles_seen}"
+            assert "tool_result" in roles_seen, f"Expected tool_result event, got roles: {roles_seen}"
+
+    asyncio.run(_test())
+
+
 def test_agent_file_creation():
     """The agent can create files that appear on the filesystem."""
     test_file = PROJECT_DIR / "_test_agent_create.md"
