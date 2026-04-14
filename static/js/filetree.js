@@ -115,6 +115,15 @@
     }
   }
 
+  // Show project directory name in the Files header
+  fetch('/api/health').then(function(r) { return r.json(); }).then(function(data) {
+    if (data.project_dir) {
+      var name = data.project_dir.split('/').pop();
+      var header = document.querySelector('#file-tree .panel-header');
+      if (header) header.textContent = name;
+    }
+  });
+
   // Load root on startup
   refresh();
 

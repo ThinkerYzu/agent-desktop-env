@@ -10,4 +10,15 @@ else
     source venv/bin/activate
 fi
 
+# Accept project directory as argument or use ADE_PROJECT_DIR env var
+if [ -n "$1" ]; then
+    export ADE_PROJECT_DIR="$(realpath "$1")"
+fi
+
+if [ -n "$ADE_PROJECT_DIR" ]; then
+    echo "Project directory: $ADE_PROJECT_DIR"
+else
+    echo "Project directory: (default)"
+fi
+
 exec uvicorn server.main:app --host 127.0.0.1 --port 9800 --reload --reload-dir server --reload-dir static

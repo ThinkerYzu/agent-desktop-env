@@ -1,4 +1,5 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -12,7 +13,10 @@ from .file_watcher import watch_project
 from . import session as session_store
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
-PROJECT_DIR = Path(__file__).parent.parent.parent.parent / "proj_docs" / "agent-desktop-env"
+PROJECT_DIR = Path(os.environ.get(
+    "ADE_PROJECT_DIR",
+    Path(__file__).parent.parent.parent.parent / "proj_docs" / "agent-desktop-env"
+)).resolve()
 
 agent = AgentRunner(PROJECT_DIR)
 manager = ConnectionManager(agent)
@@ -38,7 +42,7 @@ async def index():
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "project_dir": str(PROJECT_DIR)}
 
 
 @app.get("/api/files")
