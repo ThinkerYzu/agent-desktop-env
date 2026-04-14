@@ -251,6 +251,107 @@ html, body {
   font-style: italic;
 }
 
+/* Tool use and thinking blocks */
+.chat-tool-use {
+  background: #1a2a1a;
+  border-left: 2px solid #89d185;
+  padding: 6px 8px;
+  margin: 6px 0;
+  border-radius: 2px;
+  font-size: 12px;
+}
+
+.chat-tool-name {
+  color: #89d185;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-tool-name::before {
+  content: '\25B6 ';
+  font-size: 9px;
+}
+
+.chat-tool-use.expanded .chat-tool-name::before {
+  content: '\25BC ';
+}
+
+.chat-tool-input {
+  display: none;
+  margin-top: 4px;
+  color: #aaa;
+  font-family: monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.chat-tool-use.expanded .chat-tool-input {
+  display: block;
+}
+
+.chat-tool-result {
+  background: #1a1a2a;
+  border-left: 2px solid #7a8aaa;
+  padding: 6px 8px;
+  margin: 4px 0 6px 0;
+  border-radius: 2px;
+  font-size: 11px;
+  font-family: monospace;
+  color: #aaa;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 150px;
+  overflow-y: auto;
+  display: none;
+}
+
+.chat-tool-use.expanded + .chat-tool-result {
+  display: block;
+}
+
+.chat-thinking {
+  background: #2a2a1a;
+  border-left: 2px solid #e8a84c;
+  padding: 6px 8px;
+  margin: 6px 0;
+  border-radius: 2px;
+  font-size: 12px;
+  color: #aaa;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.chat-thinking-label {
+  color: #e8a84c;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.chat-thinking-label::before {
+  content: '\25B6 ';
+  font-size: 9px;
+}
+
+.chat-thinking.expanded .chat-thinking-label::before {
+  content: '\25BC ';
+}
+
+.chat-thinking-content {
+  display: none;
+  margin-top: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.chat-thinking.expanded .chat-thinking-content {
+  display: block;
+}
+
 .streaming-cursor {
   display: inline-block;
   width: 6px;

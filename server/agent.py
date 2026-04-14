@@ -10,13 +10,17 @@ class AgentRunner:
         self.project_dir = project_dir
         self.session_id: str | None = None
 
-    async def run(self, prompt: str, on_text=None, on_done=None):
+    async def run(self, prompt: str, on_text=None, on_done=None,
+                  on_tool_use=None, on_tool_result=None, on_thinking=None):
         """Run a prompt through Claude Code and stream the response.
 
         Args:
             prompt: The user's message
             on_text: async callback(text_chunk) called for each text chunk
             on_done: async callback(full_result) called when complete
+            on_tool_use: async callback(tool_info) called when agent invokes a tool
+            on_tool_result: async callback(result_info) called with tool result
+            on_thinking: async callback(thinking_text) called for thinking blocks
         """
         cmd = [
             "claude", "-p",
@@ -52,11 +56,12 @@ class AgentRunner:
             event_type = event.get("type")
 
             if event_type == "assistant":
-                # Extract text from the message content
+                # Extract content blocks from the message
                 message = event.get("message", {})
                 content_blocks = message.get("content", [])
                 for block in content_blocks:
-                    if block.get("type") == "text":
+                    block_type = block.get("type")
+                    if block_type == "text":
                         text = block["text"]
                         # For streaming, send the full text so far
                         # (each assistant event contains the accumulated text)
@@ -65,6 +70,34 @@ class AgentRunner:
                             full_text = text
                             if on_text and new_chunk:
                                 await on_text(new_chunk)
+                    elif block_type == "tool_use" and on_tool_use:
+                        await on_tool_use({
+                            "name": block.get("name", ""),
+                            "input": block.get("input", {}),
+                        })
+                    elif block_type == "thinking" and on_thinking:
+                        thinking_text = block.get("thinking", "")
+                        if thinking_text:
+                            await on_thinking(thinking_text)
+
+            elif event_type == "user":
+                # Tool results come back as user events
+                message = event.get("message", {})
+                content_blocks = message.get("content", [])
+                for block in content_blocks:
+                    if block.get("type") == "tool_result" and on_tool_result:
+                        # Extract text content from the tool result
+                        result_content = block.get("content", "")
+                        if isinstance(result_content, list):
+                            parts = []
+                            for part in result_content:
+                                if isinstance(part, dict) and part.get("type") == "text":
+                                    parts.append(part.get("text", ""))
+                            result_content = "\n".join(parts)
+                        await on_tool_result({
+                            "tool_use_id": block.get("tool_use_id", ""),
+                            "content": str(result_content)[:2000],
+                        })
 
             elif event_type == "result":
                 # Final result — capture session_id for resume

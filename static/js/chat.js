@@ -220,6 +220,108 @@
     if (window.DocPanel) window.DocPanel.clearAnnotation();
   }
 
+  // ── Tool use and thinking display ──
+
+  function addToolUse(name, input) {
+    // Finish any pending text streaming first
+    if (currentAssistantEl) {
+      if (typeof marked !== 'undefined') {
+        currentAssistantEl.innerHTML = marked.parse(currentAssistantText);
+      }
+    }
+
+    var wrapper = document.createElement('div');
+    wrapper.className = 'chat-tool-use';
+
+    var nameEl = document.createElement('div');
+    nameEl.className = 'chat-tool-name';
+    nameEl.textContent = name;
+
+    var inputEl = document.createElement('div');
+    inputEl.className = 'chat-tool-input';
+    // Show a brief summary of the input
+    var inputText = '';
+    if (input) {
+      if (input.command) inputText = input.command;
+      else if (input.pattern) inputText = input.pattern;
+      else if (input.file_path) inputText = input.file_path;
+      else if (input.prompt) inputText = input.prompt.substring(0, 200);
+      else inputText = JSON.stringify(input, null, 2);
+    }
+    inputEl.textContent = inputText;
+
+    nameEl.addEventListener('click', function() {
+      wrapper.classList.toggle('expanded');
+    });
+
+    wrapper.appendChild(nameEl);
+    wrapper.appendChild(inputEl);
+
+    // Add to current assistant message block, or to messages container
+    if (currentAssistantEl) {
+      currentAssistantEl.parentNode.appendChild(wrapper);
+    } else {
+      // Create a container for this turn
+      var msgEl = document.createElement('div');
+      msgEl.className = 'chat-message chat-message-assistant';
+      var roleEl = document.createElement('div');
+      roleEl.className = 'chat-role';
+      roleEl.textContent = 'Agent';
+      msgEl.appendChild(roleEl);
+      msgEl.appendChild(wrapper);
+      messagesEl.appendChild(msgEl);
+    }
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addToolResult(content) {
+    var resultEl = document.createElement('div');
+    resultEl.className = 'chat-tool-result';
+    resultEl.textContent = content;
+
+    // Find the last tool-use block and insert result after it
+    var toolBlocks = messagesEl.querySelectorAll('.chat-tool-use');
+    if (toolBlocks.length > 0) {
+      var lastTool = toolBlocks[toolBlocks.length - 1];
+      lastTool.parentNode.insertBefore(resultEl, lastTool.nextSibling);
+    }
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addThinking(text) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'chat-thinking';
+
+    var labelEl = document.createElement('div');
+    labelEl.className = 'chat-thinking-label';
+    labelEl.textContent = 'Thinking';
+
+    var contentEl = document.createElement('div');
+    contentEl.className = 'chat-thinking-content';
+    contentEl.textContent = text;
+
+    labelEl.addEventListener('click', function() {
+      wrapper.classList.toggle('expanded');
+    });
+
+    wrapper.appendChild(labelEl);
+    wrapper.appendChild(contentEl);
+
+    if (currentAssistantEl) {
+      currentAssistantEl.parentNode.appendChild(wrapper);
+    } else {
+      var msgEl = document.createElement('div');
+      msgEl.className = 'chat-message chat-message-assistant';
+      var roleEl = document.createElement('div');
+      roleEl.className = 'chat-role';
+      roleEl.textContent = 'Agent';
+      msgEl.appendChild(roleEl);
+      msgEl.appendChild(wrapper);
+      messagesEl.appendChild(msgEl);
+    }
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
   // Handle incoming chat messages from WebSocket
   function handleChat(payload) {
     if (payload.role === 'assistant') {
@@ -228,6 +330,12 @@
       } else {
         finishStreaming();
       }
+    } else if (payload.role === 'tool_use') {
+      addToolUse(payload.name, payload.input);
+    } else if (payload.role === 'tool_result') {
+      addToolResult(payload.content);
+    } else if (payload.role === 'thinking') {
+      addThinking(payload.content);
     }
   }
 

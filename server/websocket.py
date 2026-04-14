@@ -119,6 +119,34 @@ class ConnectionManager:
                 },
             }))
 
+        async def on_tool_use(tool_info):
+            await self.send_to(websocket, json.dumps({
+                "type": "chat",
+                "payload": {
+                    "role": "tool_use",
+                    "name": tool_info["name"],
+                    "input": tool_info["input"],
+                },
+            }))
+
+        async def on_tool_result(result_info):
+            await self.send_to(websocket, json.dumps({
+                "type": "chat",
+                "payload": {
+                    "role": "tool_result",
+                    "content": result_info["content"],
+                },
+            }))
+
+        async def on_thinking(text):
+            await self.send_to(websocket, json.dumps({
+                "type": "chat",
+                "payload": {
+                    "role": "thinking",
+                    "content": text,
+                },
+            }))
+
         async def on_done(result):
             await self.send_to(websocket, json.dumps({
                 "type": "chat",
@@ -132,4 +160,11 @@ class ConnectionManager:
                 },
             }))
 
-        await self.agent.run(prompt, on_text=on_text, on_done=on_done)
+        await self.agent.run(
+            prompt,
+            on_text=on_text,
+            on_done=on_done,
+            on_tool_use=on_tool_use,
+            on_tool_result=on_tool_result,
+            on_thinking=on_thinking,
+        )
