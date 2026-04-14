@@ -17,6 +17,7 @@ PROJECT_DIR = Path(os.environ.get(
     "ADE_PROJECT_DIR",
     Path(__file__).parent.parent.parent.parent / "proj_docs" / "agent-desktop-env"
 )).resolve()
+INIT_FILE = os.environ.get("ADE_INIT_FILE", "AGENT-warm-up.md")
 
 agent = AgentRunner(PROJECT_DIR)
 manager = ConnectionManager(agent)
@@ -43,6 +44,18 @@ async def index():
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "project_dir": str(PROJECT_DIR)}
+
+
+@app.get("/api/config")
+async def config():
+    """Return app configuration including init file info."""
+    init_path = PROJECT_DIR / INIT_FILE
+    return {
+        "project_dir": str(PROJECT_DIR),
+        "project_name": PROJECT_DIR.name,
+        "init_file": INIT_FILE,
+        "init_file_exists": init_path.is_file(),
+    }
 
 
 @app.get("/api/files")

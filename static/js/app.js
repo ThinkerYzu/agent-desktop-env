@@ -12,6 +12,7 @@
     ws.onopen = function() {
       console.log('WebSocket connected');
       reconnectDelay = 1000;
+      flushPendingSends();
     };
 
     ws.onmessage = function(event) {
@@ -84,9 +85,19 @@
     }
   }
 
+  var pendingSends = [];
+
   function send(msg) {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg));
+    } else {
+      pendingSends.push(msg);
+    }
+  }
+
+  function flushPendingSends() {
+    while (pendingSends.length > 0 && ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(pendingSends.shift()));
     }
   }
 
@@ -258,6 +269,34 @@
       .then(function(session) {
         currentSessionId = session.id;
         document.getElementById('session-picker').style.display = 'none';
+        // Initialize agent with warm-up file if it exists
+        initAgentWithWarmup();
+      });
+  }
+
+  function initAgentWithWarmup() {
+    fetch('/api/config')
+      .then(function(r) { return r.json(); })
+      .then(function(cfg) {
+        if (cfg.init_file_exists && cfg.init_file) {
+          var prompt = 'Read ' + cfg.init_file + ' and follow its instructions.';
+          // Show as a system-style message in chat
+          if (window.Chat && window.Chat.addRestoredMessage) {
+            window.Chat.addRestoredMessage('user', prompt);
+          }
+          // Save to session
+          saveMessageToSession('user', prompt);
+          // Send to agent
+          send({
+            type: 'chat',
+            payload: { role: 'user', content: prompt },
+          });
+          // Disable input while agent responds
+          var inputEl = document.getElementById('chat-input');
+          var sendBtn = document.getElementById('chat-send');
+          if (inputEl) inputEl.disabled = true;
+          if (sendBtn) sendBtn.disabled = true;
+        }
       });
   }
 
@@ -284,9 +323,13 @@
 
   // Wire up session picker buttons
   document.getElementById('session-new').addEventListener('click', function() {
-    startNewSession();
-    // Clear chat for new session
+    // Clear chat and close tabs for fresh session
     document.getElementById('chat-messages').innerHTML = '';
+    if (window.DocPanel) {
+      var tabs = window.DocPanel.getOpenTabs();
+      tabs.forEach(function(p) { window.DocPanel.closeFile(p); });
+    }
+    startNewSession();
   });
   document.getElementById('session-picker-close').addEventListener('click', function() {
     document.getElementById('session-picker').style.display = 'none';
