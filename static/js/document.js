@@ -88,6 +88,21 @@
     }
   }
 
+  // Debounced scroll save — records scroll position 2 seconds after scrolling stops
+  var scrollSaveTimer = null;
+  contentEl.addEventListener('scroll', function() {
+    if (!activeTab) return;
+    if (scrollSaveTimer) clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = setTimeout(function() {
+      scrollSaveTimer = null;
+      var tab = openTabs.find(function(t) { return t.path === activeTab; });
+      if (tab) {
+        tab.scrollTop = contentEl.scrollTop;
+        notifyWorkspaceChanged();
+      }
+    }, 2000);
+  });
+
   function renderTabs() {
     tabsEl.innerHTML = '';
     openTabs.forEach(function(tab) {
