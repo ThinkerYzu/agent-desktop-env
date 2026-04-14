@@ -84,6 +84,35 @@ html, body {
   align-items: center;
 }
 
+/* Agent working indicator */
+.agent-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #e8a84c;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+
+.agent-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e8a84c;
+  animation: agent-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes agent-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.agent-status-text {
+  letter-spacing: 0.3px;
+}
+
 #session-switch {
   padding: 2px 8px;
   background: transparent;

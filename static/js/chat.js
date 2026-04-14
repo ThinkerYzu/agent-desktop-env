@@ -8,6 +8,7 @@
   var currentAssistantEl = null;
   var currentAssistantText = '';
   var pendingAnnotation = null;
+  var agentStatusEl = null;
 
   // ── Annotation badge ──
 
@@ -166,7 +167,23 @@
     inputEl.disabled = !enabled;
     sendBtn.disabled = !enabled;
     if (enabled) {
+      // Remove working indicator
+      if (agentStatusEl && agentStatusEl.parentNode) {
+        agentStatusEl.parentNode.removeChild(agentStatusEl);
+        agentStatusEl = null;
+      }
       inputEl.focus();
+    } else {
+      // Show working indicator at bottom of messages
+      if (!agentStatusEl) {
+        agentStatusEl = document.createElement('div');
+        agentStatusEl.className = 'agent-status';
+        agentStatusEl.innerHTML =
+          '<span class="agent-status-dot"></span>' +
+          '<span class="agent-status-text">Working</span>';
+      }
+      messagesEl.appendChild(agentStatusEl);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
     }
   }
 
@@ -233,5 +250,6 @@
     handleChat: handleChat,
     setAnnotation: setAnnotation,
     addRestoredMessage: addRestoredMessage,
+    setInputEnabled: setInputEnabled,
   };
 })();

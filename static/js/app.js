@@ -293,11 +293,10 @@
             type: 'chat',
             payload: { role: 'user', content: prompt },
           });
-          // Disable input while agent responds
-          var inputEl = document.getElementById('chat-input');
-          var sendBtn = document.getElementById('chat-send');
-          if (inputEl) inputEl.disabled = true;
-          if (sendBtn) sendBtn.disabled = true;
+          // Disable input and show working indicator
+          if (window.Chat && window.Chat.setInputEnabled) {
+            window.Chat.setInputEnabled(false);
+          }
         }
       });
   }
