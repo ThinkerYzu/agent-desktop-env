@@ -37,6 +37,7 @@ If no project directory is specified, a built-in default is used.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ADE_PROJECT_DIR` | — | Root directory shown in the file tree and watched for changes |
+| `ADE_PORT` | `9800` | Port the server listens on |
 | `ADE_INIT_FILE` | `AGENT-warm-up.md` | File the agent reads at the start of each new session for project context. Set to an empty string to disable. |
 
 ### Agent Warm-Up

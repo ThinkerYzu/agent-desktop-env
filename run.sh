@@ -21,4 +21,7 @@ else
     echo "Project directory: (default)"
 fi
 
-exec uvicorn server.main:app --host 127.0.0.1 --port 9800 --reload --reload-dir server --reload-dir static
+PORT="${ADE_PORT:-9800}"
+echo "Port: $PORT"
+
+exec uvicorn server.main:app --host 127.0.0.1 --port "$PORT" --reload --reload-dir server --reload-dir static
