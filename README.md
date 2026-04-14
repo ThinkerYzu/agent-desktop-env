@@ -46,6 +46,8 @@ If no project directory is specified, a built-in default is used.
 
 When a new chat session starts, the agent automatically reads the file specified by `ADE_INIT_FILE` (relative to the project directory). This lets you give the agent background on your project — architecture, conventions, current status — so it's productive from the first message. Create an `AGENT-warm-up.md` in your project root, or point `ADE_INIT_FILE` to any file you prefer.
 
+This project is designed to work with [docforge](https://github.com/ThinkerYzu/docforge), a doc-driven development template for AI-assisted projects. Copy docforge's template into your project directory and the agent will automatically pick up `AGENT-warm-up.md` on each new session — initializing the project on the first session, and loading context from `HANDOFF.md` on subsequent sessions.
+
 ## Project Structure
 
 ```
