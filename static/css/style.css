@@ -312,6 +312,32 @@ html, body {
   display: block;
 }
 
+/* Collapsed tool calls */
+.chat-tool-collapse {
+  margin: 4px 0;
+}
+
+.chat-tool-collapse-toggle {
+  color: #89d185;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  opacity: 0.8;
+}
+
+.chat-tool-collapse-toggle:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.chat-tool-collapse .chat-tool-use {
+  display: none;
+}
+
+.chat-tool-collapse.expanded .chat-tool-use {
+  display: block;
+}
+
 .chat-thinking {
   background: #2a2a1a;
   border-left: 2px solid #e8a84c;

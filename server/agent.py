@@ -63,8 +63,11 @@ class AgentRunner:
                     block_type = block.get("type")
                     if block_type == "text":
                         text = block["text"]
-                        # For streaming, send the full text so far
-                        # (each assistant event contains the accumulated text)
+                        # Each assistant event contains accumulated text
+                        # for that message. If new text is shorter than
+                        # full_text, it's a new message — reset tracking.
+                        if len(text) < len(full_text):
+                            full_text = ""
                         if text != full_text:
                             new_chunk = text[len(full_text):]
                             full_text = text
@@ -107,7 +110,9 @@ class AgentRunner:
 
                 result_text = event.get("result", "")
                 if result_text and result_text != full_text:
-                    # Send any remaining text
+                    # Result contains only the last message's text
+                    if len(result_text) < len(full_text):
+                        full_text = ""
                     new_chunk = result_text[len(full_text):]
                     full_text = result_text
                     if on_text and new_chunk:

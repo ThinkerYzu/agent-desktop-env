@@ -147,7 +147,7 @@ class TestChatRendering:
 
     def test_user_message_appears(self, client):
         """Sending a message shows it in the chat panel."""
-        clear_chat(client)
+        client.eval_js("Chat.reset()")
         send_chat(client, "say pong")
         time.sleep(0.5)
         count = get_message_count(client)
@@ -158,7 +158,7 @@ class TestChatRendering:
 
     def test_agent_response_appears(self, client):
         """Agent response appears after sending a message."""
-        clear_chat(client)
+        client.eval_js("Chat.reset()")
         send_chat(client, "say just the word pong")
         wait_for_response(client)
         text = get_last_agent_text(client).lower()
@@ -166,7 +166,7 @@ class TestChatRendering:
 
     def test_input_re_enabled_after_response(self, client):
         """Input is re-enabled after the agent finishes responding."""
-        clear_chat(client)
+        client.eval_js("Chat.reset()")
         send_chat(client, "say ok")
         wait_for_response(client)
         disabled = client.eval_js("document.getElementById('chat-input').disabled")
@@ -174,7 +174,7 @@ class TestChatRendering:
 
     def test_message_order(self, client):
         """Messages appear in order: user, agent, user, agent."""
-        clear_chat(client)
+        client.eval_js("Chat.reset()")
         send_chat(client, "say alpha")
         wait_for_response(client)
         send_chat(client, "say beta")
@@ -189,7 +189,7 @@ class TestChatRendering:
 
     def test_agent_response_has_html(self, client):
         """Agent response is rendered as HTML (not plain text)."""
-        clear_chat(client)
+        client.eval_js("Chat.reset()")
         send_chat(client, "say hello")
         wait_for_response(client)
         html = get_last_agent_html(client)
@@ -198,7 +198,7 @@ class TestChatRendering:
 
     def test_tool_use_rendered_in_chat(self, client):
         """A prompt triggering tool use shows tool blocks in the chat panel."""
-        clear_chat(client)
+        client.eval_js("Chat.reset()")
         send_chat(client, "list files in the current directory using ls")
         wait_for_response(client, timeout=60)
         tool_count = int(client.eval_js(
@@ -213,3 +213,112 @@ class TestChatRendering:
           })()
         """)
         assert len(tool_name) > 0, "Tool use block should have a tool name"
+
+
+class TestToolCallCollapse:
+    """Tests for tool call collapsing — first 3 visible, rest behind +N toggle."""
+
+    def _simulate_tool_calls(self, client, count):
+        """Simulate N tool calls via Chat.handleChat and return."""
+        client.eval_js("Chat.reset()")
+        # Start a streaming assistant message first
+        client.eval_js("Chat.handleChat({role:'assistant',streaming:true,content:'working...'})")
+        for i in range(count):
+            client.eval_js(
+                "Chat.handleChat({role:'tool_use',name:'Tool_%d',input:{command:'cmd_%d'}})" % (i, i)
+            )
+
+    def test_three_tools_all_visible(self, client):
+        """With 3 tool calls, all are visible and no collapse toggle appears."""
+        self._simulate_tool_calls(client, 3)
+        visible = int(client.eval_js("""
+          (function() {
+            var tools = document.querySelectorAll('.chat-tool-use');
+            var count = 0;
+            tools.forEach(function(el) { if (el.offsetParent !== null) count++; });
+            return count;
+          })()
+        """))
+        assert visible == 3
+        collapse = client.eval_js("document.querySelector('.chat-tool-collapse-toggle')")
+        assert collapse == "null" or collapse is None
+
+    def test_six_tools_shows_collapse(self, client):
+        """With 6 tool calls, first 3 visible, rest collapsed behind toggle."""
+        self._simulate_tool_calls(client, 6)
+        toggle_text = client.eval_js(
+            "document.querySelector('.chat-tool-collapse-toggle').textContent"
+        )
+        assert "+3 more tools" == toggle_text
+
+    def test_collapse_toggle_expands(self, client):
+        """Clicking the toggle reveals hidden tool calls."""
+        self._simulate_tool_calls(client, 5)
+        # Click to expand
+        client.eval_js("document.querySelector('.chat-tool-collapse-toggle').click()")
+        toggle_text = client.eval_js(
+            "document.querySelector('.chat-tool-collapse-toggle').textContent"
+        )
+        assert "Hide 2 tools" == toggle_text
+        # All 5 tool-use blocks should now be visible
+        visible = int(client.eval_js("""
+          (function() {
+            var tools = document.querySelectorAll('.chat-tool-use');
+            var count = 0;
+            tools.forEach(function(el) { if (el.offsetParent !== null) count++; });
+            return count;
+          })()
+        """))
+        assert visible == 5
+
+    def test_collapse_toggle_collapses_again(self, client):
+        """Clicking toggle a second time hides tool calls again."""
+        self._simulate_tool_calls(client, 5)
+        # Expand then collapse
+        client.eval_js("document.querySelector('.chat-tool-collapse-toggle').click()")
+        client.eval_js("document.querySelector('.chat-tool-collapse-toggle').click()")
+        toggle_text = client.eval_js(
+            "document.querySelector('.chat-tool-collapse-toggle').textContent"
+        )
+        assert "+2 more tools" == toggle_text
+        # Only first 3 visible
+        visible = int(client.eval_js("""
+          (function() {
+            var tools = document.querySelectorAll('.chat-tool-use');
+            var count = 0;
+            tools.forEach(function(el) { if (el.offsetParent !== null) count++; });
+            return count;
+          })()
+        """))
+        assert visible == 3
+
+    def test_new_text_resets_tool_counter(self, client):
+        """When streaming text starts after tools, the counter resets for the next batch."""
+        client.eval_js("Chat.reset()")
+        # First batch: 5 tools (3 visible + 2 collapsed)
+        client.eval_js("Chat.handleChat({role:'assistant',streaming:true,content:'first'})")
+        for i in range(5):
+            client.eval_js(
+                "Chat.handleChat({role:'tool_use',name:'Batch1_%d',input:{}})" % i
+            )
+        # Finish streaming and start new text — resets counter
+        client.eval_js("Chat.handleChat({role:'assistant',streaming:false})")
+        client.eval_js("Chat.handleChat({role:'assistant',streaming:true,content:'second'})")
+        # Second batch: 2 tools — should all be visible (under threshold)
+        for i in range(2):
+            client.eval_js(
+                "Chat.handleChat({role:'tool_use',name:'Batch2_%d',input:{}})" % i
+            )
+        # Count collapse toggles — should be only 1 from the first batch
+        toggle_count = int(client.eval_js(
+            "document.querySelectorAll('.chat-tool-collapse-toggle').length"
+        ))
+        assert toggle_count == 1
+
+    def test_singular_tool_label(self, client):
+        """With exactly 4 tool calls, toggle shows '+1 more tool' (singular)."""
+        self._simulate_tool_calls(client, 4)
+        toggle_text = client.eval_js(
+            "document.querySelector('.chat-tool-collapse-toggle').textContent"
+        )
+        assert "+1 more tool" == toggle_text

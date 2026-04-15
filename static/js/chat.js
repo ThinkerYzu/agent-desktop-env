@@ -9,6 +9,9 @@
   var currentAssistantText = '';
   var pendingAnnotation = null;
   var agentStatusEl = null;
+  var toolCallCount = 0;
+  var toolCollapseEl = null;
+  var TOOL_VISIBLE_COUNT = 3;
 
   // ── Annotation badge ──
 
@@ -113,6 +116,8 @@
 
   function startStreaming() {
     currentAssistantText = '';
+    toolCallCount = 0;
+    toolCollapseEl = null;
     var msgEl = document.createElement('div');
     msgEl.className = 'chat-message chat-message-assistant';
 
@@ -127,6 +132,7 @@
     msgEl.appendChild(roleEl);
     msgEl.appendChild(contentEl);
     messagesEl.appendChild(msgEl);
+    ensureStatusAtBottom();
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
     currentAssistantEl = contentEl;
@@ -134,6 +140,8 @@
 
   function appendStreamChunk(chunk) {
     if (!currentAssistantEl) {
+      toolCallCount = 0;
+      toolCollapseEl = null;
       startStreaming();
     }
     currentAssistantText += chunk;
@@ -143,6 +151,7 @@
     } else {
       currentAssistantEl.textContent = currentAssistantText;
     }
+    ensureStatusAtBottom();
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
@@ -161,6 +170,12 @@
       currentAssistantText = '';
     }
     setInputEnabled(true);
+  }
+
+  function ensureStatusAtBottom() {
+    if (agentStatusEl && agentStatusEl.parentNode) {
+      messagesEl.appendChild(agentStatusEl);
+    }
   }
 
   function setInputEnabled(enabled) {
@@ -230,6 +245,8 @@
       }
     }
 
+    toolCallCount++;
+
     var wrapper = document.createElement('div');
     wrapper.className = 'chat-tool-use';
 
@@ -257,9 +274,10 @@
     wrapper.appendChild(nameEl);
     wrapper.appendChild(inputEl);
 
-    // Add to current assistant message block, or to messages container
+    // Determine the parent container for this tool block
+    var parentEl;
     if (currentAssistantEl) {
-      currentAssistantEl.parentNode.appendChild(wrapper);
+      parentEl = currentAssistantEl.parentNode;
     } else {
       // Create a container for this turn
       var msgEl = document.createElement('div');
@@ -268,9 +286,38 @@
       roleEl.className = 'chat-role';
       roleEl.textContent = 'Agent';
       msgEl.appendChild(roleEl);
-      msgEl.appendChild(wrapper);
       messagesEl.appendChild(msgEl);
+      parentEl = msgEl;
     }
+
+    if (toolCallCount <= TOOL_VISIBLE_COUNT) {
+      parentEl.appendChild(wrapper);
+    } else {
+      // Create or update the collapsed section
+      if (!toolCollapseEl) {
+        toolCollapseEl = document.createElement('div');
+        toolCollapseEl.className = 'chat-tool-collapse';
+        var toggleEl = document.createElement('div');
+        toggleEl.className = 'chat-tool-collapse-toggle';
+        toggleEl.addEventListener('click', function() {
+          toolCollapseEl.classList.toggle('expanded');
+          var hidden = toolCallCount - TOOL_VISIBLE_COUNT;
+          toggleEl.textContent = toolCollapseEl.classList.contains('expanded')
+            ? 'Hide ' + hidden + ' tool' + (hidden > 1 ? 's' : '')
+            : '+' + hidden + ' more tool' + (hidden > 1 ? 's' : '');
+        });
+        toolCollapseEl.appendChild(toggleEl);
+        parentEl.appendChild(toolCollapseEl);
+      }
+      toolCollapseEl.appendChild(wrapper);
+      // Update the toggle text
+      var hidden = toolCallCount - TOOL_VISIBLE_COUNT;
+      var toggleEl = toolCollapseEl.querySelector('.chat-tool-collapse-toggle');
+      toggleEl.textContent = toolCollapseEl.classList.contains('expanded')
+        ? 'Hide ' + hidden + ' tool' + (hidden > 1 ? 's' : '')
+        : '+' + hidden + ' more tool' + (hidden > 1 ? 's' : '');
+    }
+    ensureStatusAtBottom();
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
@@ -285,6 +332,7 @@
       var lastTool = toolBlocks[toolBlocks.length - 1];
       lastTool.parentNode.insertBefore(resultEl, lastTool.nextSibling);
     }
+    ensureStatusAtBottom();
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
@@ -319,6 +367,7 @@
       msgEl.appendChild(wrapper);
       messagesEl.appendChild(msgEl);
     }
+    ensureStatusAtBottom();
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
@@ -353,11 +402,22 @@
     addMessage(role, content, annotation || null);
   }
 
+  function reset() {
+    messagesEl.innerHTML = '';
+    currentAssistantEl = null;
+    currentAssistantText = '';
+    toolCallCount = 0;
+    toolCollapseEl = null;
+    agentStatusEl = null;
+    setInputEnabled(true);
+  }
+
   // Expose for app.js and document.js
   window.Chat = {
     handleChat: handleChat,
     setAnnotation: setAnnotation,
     addRestoredMessage: addRestoredMessage,
     setInputEnabled: setInputEnabled,
+    reset: reset,
   };
 })();
