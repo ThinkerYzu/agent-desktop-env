@@ -301,6 +301,41 @@
       });
   }
 
+  // ── Stale localStorage cleanup ──
+
+  function cleanupStaleWorkspaces() {
+    var MAX_AGE_MS = 180 * 24 * 60 * 60 * 1000; // 180 days
+    fetch('/api/sessions').then(function(r) { return r.json(); }).then(function(data) {
+      var sessions = data.sessions || [];
+      var activeIds = {};
+      var now = Date.now();
+      sessions.forEach(function(s) {
+        var age = now - new Date(s.lastActive).getTime();
+        if (age < MAX_AGE_MS) {
+          activeIds[s.id] = true;
+        }
+      });
+
+      // Remove localStorage keys for sessions that are stale or no longer exist
+      var keysToRemove = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key && key.indexOf('ade_workspace_') === 0) {
+          var id = key.substring('ade_workspace_'.length);
+          if (!activeIds[id]) {
+            keysToRemove.push(key);
+          }
+        }
+      }
+      keysToRemove.forEach(function(key) {
+        localStorage.removeItem(key);
+      });
+      if (keysToRemove.length > 0) {
+        console.log('Cleaned up ' + keysToRemove.length + ' stale workspace(s) from localStorage');
+      }
+    });
+  }
+
   // ── Init ──
 
   // Expose for other modules
@@ -312,6 +347,7 @@
   };
 
   connect();
+  cleanupStaleWorkspaces();
 
   // Auto-resume the most recent session, or create a new one
   fetch('/api/sessions').then(function(r) { return r.json(); }).then(function(data) {
