@@ -12,10 +12,16 @@ class ConnectionManager:
         self.connections: list[WebSocket] = []
         self.agent = agent
         self._chat_task: asyncio.Task | None = None
+        self._chat_ws: WebSocket | None = None
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.connections.append(websocket)
+        # If the previous chat websocket is gone (browser reconnected),
+        # migrate the active _handle_chat to use this new connection so
+        # remaining messages (including on_done) reach the client.
+        if self._chat_ws is not None and self._chat_ws not in self.connections:
+            self._chat_ws = websocket
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.connections:
@@ -88,6 +94,10 @@ class ConnectionManager:
         if not content:
             return
 
+        # Track the active chat websocket so it can be migrated on
+        # reconnection (see connect()).
+        self._chat_ws = websocket
+
         # Build prompt with annotation context if present
         annotation = payload.get("annotation")
         prompt = content
@@ -108,9 +118,11 @@ class ConnectionManager:
                 f"```\n{selected}\n```\n]\n\n{content}"
             )
 
-        # Send streaming chunks back to the client
+        # Callbacks use self._chat_ws (not the captured `websocket`)
+        # so that if the browser reconnects mid-response, remaining
+        # messages are delivered to the new connection.
         async def on_text(chunk):
-            await self.send_to(websocket, json.dumps({
+            await self.send_to(self._chat_ws, json.dumps({
                 "type": "chat",
                 "payload": {
                     "role": "assistant",
@@ -120,7 +132,7 @@ class ConnectionManager:
             }))
 
         async def on_tool_use(tool_info):
-            await self.send_to(websocket, json.dumps({
+            await self.send_to(self._chat_ws, json.dumps({
                 "type": "chat",
                 "payload": {
                     "role": "tool_use",
@@ -130,7 +142,7 @@ class ConnectionManager:
             }))
 
         async def on_tool_result(result_info):
-            await self.send_to(websocket, json.dumps({
+            await self.send_to(self._chat_ws, json.dumps({
                 "type": "chat",
                 "payload": {
                     "role": "tool_result",
@@ -139,7 +151,7 @@ class ConnectionManager:
             }))
 
         async def on_thinking(text):
-            await self.send_to(websocket, json.dumps({
+            await self.send_to(self._chat_ws, json.dumps({
                 "type": "chat",
                 "payload": {
                     "role": "thinking",
@@ -148,7 +160,7 @@ class ConnectionManager:
             }))
 
         async def on_done(result):
-            await self.send_to(websocket, json.dumps({
+            await self.send_to(self._chat_ws, json.dumps({
                 "type": "chat",
                 "payload": {
                     "role": "assistant",
@@ -159,12 +171,26 @@ class ConnectionManager:
                     "duration_ms": result.get("duration_ms"),
                 },
             }))
+            self._chat_ws = None
 
-        await self.agent.run(
-            prompt,
-            on_text=on_text,
-            on_done=on_done,
-            on_tool_use=on_tool_use,
-            on_tool_result=on_tool_result,
-            on_thinking=on_thinking,
-        )
+        try:
+            await self.agent.run(
+                prompt,
+                on_text=on_text,
+                on_done=on_done,
+                on_tool_use=on_tool_use,
+                on_tool_result=on_tool_result,
+                on_thinking=on_thinking,
+            )
+        except Exception:
+            # Ensure the UI clears the working indicator even if the
+            # agent crashes unexpectedly.
+            try:
+                await on_done({
+                    "text": "",
+                    "session_id": self.agent.session_id,
+                    "cost_usd": None,
+                    "duration_ms": None,
+                })
+            except Exception:
+                pass

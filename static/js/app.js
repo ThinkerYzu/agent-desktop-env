@@ -11,6 +11,13 @@
 
     ws.onopen = function() {
       console.log('WebSocket connected');
+      // If this is a reconnection (not the initial connect) and the
+      // agent was mid-response, the old WebSocket is dead and the
+      // server is still sending to it.  Clear the working indicator
+      // so the UI isn't stuck.
+      if (reconnectDelay > 1000 && window.Chat) {
+        window.Chat.setInputEnabled(true);
+      }
       reconnectDelay = 1000;
       flushPendingSends();
     };
