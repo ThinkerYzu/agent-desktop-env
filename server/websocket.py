@@ -171,7 +171,6 @@ class ConnectionManager:
                     "duration_ms": result.get("duration_ms"),
                 },
             }))
-            self._chat_ws = None
 
         try:
             await self.agent.run(
@@ -183,14 +182,23 @@ class ConnectionManager:
                 on_thinking=on_thinking,
             )
         except Exception:
-            # Ensure the UI clears the working indicator even if the
-            # agent crashes unexpectedly.
+            pass
+        finally:
+            # Always send a done signal after agent.run() returns,
+            # regardless of whether on_done was already called.
+            # This guarantees the UI clears the working indicator
+            # even if the earlier on_done send was silently lost.
+            # The client's finishStreaming() is idempotent.
+            ws = self._chat_ws or websocket
+            self._chat_ws = None
             try:
-                await on_done({
-                    "text": "",
-                    "session_id": self.agent.session_id,
-                    "cost_usd": None,
-                    "duration_ms": None,
-                })
+                await self.send_to(ws, json.dumps({
+                    "type": "chat",
+                    "payload": {
+                        "role": "assistant",
+                        "content": "",
+                        "streaming": False,
+                    },
+                }))
             except Exception:
                 pass
