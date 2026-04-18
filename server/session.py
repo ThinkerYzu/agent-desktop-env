@@ -88,7 +88,8 @@ def add_message(session_id: str, role: str, content: str, annotation=None):
     return session
 
 
-def update_workspace(session_id: str, open_tabs: list[str], active_tab: str | None):
+def update_workspace(session_id: str, open_tabs: list[str], active_tab: str | None,
+                     agent_session_id: str | None = None):
     """Update the workspace state of a session."""
     session = get_session(session_id)
     if not session:
@@ -97,6 +98,10 @@ def update_workspace(session_id: str, open_tabs: list[str], active_tab: str | No
         "openTabs": open_tabs,
         "activeTab": active_tab,
     }
+    # Only overwrite agentSessionId when a value is explicitly provided
+    # (workspace updates from tab changes don't include it).
+    if agent_session_id is not None:
+        session["agentSessionId"] = agent_session_id
     save_session(session)
     return session
 

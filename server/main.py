@@ -138,6 +138,7 @@ async def update_session_workspace(session_id: str, body: dict):
         session_id,
         body.get("openTabs", []),
         body.get("activeTab"),
+        body.get("agentSessionId"),
     )
     if not session:
         return PlainTextResponse("Not found", status_code=404)

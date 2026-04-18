@@ -76,6 +76,10 @@ class ConnectionManager:
         elif msg_type == "restore_agent_session":
             agent_session_id = msg.get("payload", {}).get("agentSessionId")
             if agent_session_id:
+                # End any existing process so the next message starts a
+                # fresh process with --resume <agent_session_id>.
+                # terminate() also clears session_id, so set it after.
+                await self.agent.terminate()
                 self.agent.session_id = agent_session_id
 
         elif msg_type == "reset_agent_session":
