@@ -260,12 +260,17 @@
         restoreWorkspace(serverWs);
       }
 
-      // Restore agent session
+      // Restore agent session.  Always notify the server so any
+      // process from a previous session is terminated; only pass
+      // an agentSessionId if this session has one (otherwise the
+      // next message starts a fresh conversation).
       if (session.agentSessionId) {
         send({
           type: 'restore_agent_session',
           payload: { agentSessionId: session.agentSessionId },
         });
+      } else {
+        send({ type: 'reset_agent_session' });
       }
     });
   }
