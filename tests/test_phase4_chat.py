@@ -31,6 +31,23 @@ def http_client():
         yield client
 
 
+@pytest.fixture(autouse=True)
+def reset_agent():
+    """Reset the agent subprocess before each test for isolation.
+
+    The agent maintains a long-lived subprocess across messages, so
+    conversation context leaks between tests without this reset.
+    """
+    async def _reset():
+        async with websockets.connect(WS_URL) as ws:
+            await ws.send(json.dumps({"type": "reset_agent_session"}))
+            # Give the server time to complete agent.terminate()
+            # before closing the socket (terminate can take up to 5s).
+            await asyncio.sleep(1.0)
+    asyncio.run(_reset())
+    yield
+
+
 def test_server_is_running(http_client):
     """Prerequisite: server must be running."""
     r = http_client.get("/api/health")
@@ -161,11 +178,16 @@ def test_agent_file_creation():
                 },
             }))
 
-            # Wait for completion
+            # Wait for completion (assistant role with streaming=False).
+            # Tool use/result messages have no `streaming` field, so check
+            # both role and the explicit False value.
             while True:
                 msg = await asyncio.wait_for(ws.recv(), timeout=60.0)
                 data = json.loads(msg)
-                if data["type"] == "chat" and not data["payload"].get("streaming"):
+                if data["type"] != "chat":
+                    continue
+                p = data["payload"]
+                if p.get("role") == "assistant" and p.get("streaming") is False:
                     break
 
     try:
