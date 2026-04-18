@@ -37,7 +37,7 @@ class AgentRunner:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
             cwd=str(self.project_dir),
         )
 
