@@ -22,6 +22,7 @@ class AgentRunner:
         self._on_tool_result = None
         self._on_thinking = None
         self._full_text = ""
+        self._current_msg_id: str | None = None
         self._turn_done: asyncio.Event | None = None
 
     async def _ensure_process(self):
@@ -68,13 +69,21 @@ class AgentRunner:
 
             if event_type == "assistant":
                 message = event.get("message", {})
+                # Each assistant message has a unique id.  When the id
+                # changes, it's a new message — reset the accumulator so
+                # the delta calculation starts fresh.  Text within one
+                # message accumulates; this catches the case where the
+                # new message happens to be longer than the previous one
+                # and the simple length comparison would lose its prefix.
+                msg_id = message.get("id")
+                if msg_id and msg_id != self._current_msg_id:
+                    self._current_msg_id = msg_id
+                    self._full_text = ""
                 content_blocks = message.get("content", [])
                 for block in content_blocks:
                     block_type = block.get("type")
                     if block_type == "text":
                         text = block["text"]
-                        if len(text) < len(self._full_text):
-                            self._full_text = ""
                         if text != self._full_text:
                             new_chunk = text[len(self._full_text):]
                             self._full_text = text
@@ -113,8 +122,14 @@ class AgentRunner:
                     self.session_id = sid
 
                 result_text = event.get("result", "")
+                # The `result` event's text is the final assistant
+                # message text.  If we already streamed it via assistant
+                # events, _full_text == result_text and nothing more is
+                # sent.  Otherwise the result represents a new message
+                # boundary — reset the accumulator before computing the
+                # delta so we don't slice off characters.
                 if result_text and result_text != self._full_text:
-                    if len(result_text) < len(self._full_text):
+                    if not result_text.startswith(self._full_text):
                         self._full_text = ""
                     new_chunk = result_text[len(self._full_text):]
                     self._full_text = result_text
@@ -160,6 +175,7 @@ class AgentRunner:
         self._on_tool_result = on_tool_result
         self._on_thinking = on_thinking
         self._full_text = ""
+        self._current_msg_id = None
         self._turn_done = asyncio.Event()
 
         # Send user message as JSON line to stdin
