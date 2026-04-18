@@ -79,7 +79,7 @@ class ConnectionManager:
                 self.agent.session_id = agent_session_id
 
         elif msg_type == "reset_agent_session":
-            self.agent.session_id = None
+            await self.agent.terminate()
 
         elif msg_type == "eval":
             await self.send_to_others(websocket, data)
