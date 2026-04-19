@@ -15,6 +15,36 @@
     marked.use({ renderer: renderer });
   }
 
+  // Initialize mermaid (skip auto-render; we trigger it manually after
+  // each marked.parse so it picks up dynamically-rendered blocks).
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+  }
+
+  var mermaidCounter = 0;
+
+  // Replace ```mermaid``` code blocks (rendered by marked as
+  // <pre><code class="language-mermaid">...</code></pre>) with
+  // <pre class="mermaid"> containers and let mermaid.run() render them.
+  function renderMermaid(rootEl) {
+    if (typeof mermaid === 'undefined') return;
+    var blocks = rootEl.querySelectorAll('pre > code.language-mermaid');
+    if (blocks.length === 0) return;
+    var nodes = [];
+    blocks.forEach(function(code) {
+      var pre = code.parentNode;
+      var holder = document.createElement('pre');
+      holder.className = 'mermaid';
+      holder.id = 'mermaid-' + (++mermaidCounter);
+      holder.textContent = code.textContent;
+      pre.parentNode.replaceChild(holder, pre);
+      nodes.push(holder);
+    });
+    mermaid.run({ nodes: nodes }).catch(function(err) {
+      console.error('Mermaid render error:', err);
+    });
+  }
+
   var tabsEl = document.getElementById('doc-tabs');
   var contentEl = document.getElementById('document-content');
   var openTabs = [];   // [{path, content, scrollTop}]
@@ -132,6 +162,7 @@
   function renderDocument(tab) {
     if (typeof marked !== 'undefined' && tab.path.endsWith('.md')) {
       contentEl.innerHTML = marked.parse(tab.content);
+      renderMermaid(contentEl);
     } else {
       var pre = document.createElement('pre');
       pre.textContent = tab.content;
