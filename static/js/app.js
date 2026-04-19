@@ -4,6 +4,7 @@
   var ws = null;
   var reconnectDelay = 1000;
   var currentSessionId = null;
+  var displaced = false;  // set when the server tells us another tab took over
 
   function connect() {
     var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -31,7 +32,17 @@
       }
     };
 
-    ws.onclose = function() {
+    ws.onclose = function(event) {
+      // Close code 4001 = displaced by another tab/window.
+      if (event.code === 4001) {
+        displaced = true;
+        showDisplacedBanner();
+        console.log('WebSocket displaced by another tab — not reconnecting');
+        return;
+      }
+      if (displaced) {
+        return;
+      }
       console.log('WebSocket disconnected, reconnecting in', reconnectDelay, 'ms');
       setTimeout(connect, reconnectDelay);
       reconnectDelay = Math.min(reconnectDelay * 2, 10000);
@@ -41,6 +52,18 @@
       console.error('WebSocket error:', err);
       ws.close();
     };
+  }
+
+  function showDisplacedBanner() {
+    if (document.getElementById('ade-displaced-banner')) return;
+    var banner = document.createElement('div');
+    banner.id = 'ade-displaced-banner';
+    banner.style.cssText =
+      'position:fixed;top:0;left:0;right:0;background:#b00;color:#fff;' +
+      'padding:12px;text-align:center;z-index:99999;font-family:sans-serif;';
+    banner.textContent =
+      'This tab was disconnected because another ADE tab took over. Reload to use this tab instead.';
+    document.body.appendChild(banner);
   }
 
   function handleMessage(msg) {

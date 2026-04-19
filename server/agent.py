@@ -23,6 +23,7 @@ class AgentRunner:
         self._on_thinking = None
         self._full_text = ""
         self._current_msg_id: str | None = None
+        self._got_result: bool = False
         self._turn_done: asyncio.Event | None = None
 
     async def _ensure_process(self):
@@ -117,9 +118,18 @@ class AgentRunner:
                         })
 
             elif event_type == "result":
-                sid = event.get("session_id")
-                if sid:
-                    self.session_id = sid
+                # Distinguish a successful turn from an error result
+                # (e.g. invalid --resume session id).  Only mark as
+                # got_result on success — error results trigger the
+                # retry path in run().  Also don't save a session_id
+                # from an error result; it's a synthetic id, not a
+                # resumable conversation.
+                is_error = event.get("is_error", False) or event.get("subtype") not in (None, "success")
+                if not is_error:
+                    self._got_result = True
+                    sid = event.get("session_id")
+                    if sid:
+                        self.session_id = sid
 
                 result_text = event.get("result", "")
                 # The `result` event's text is the final assistant
@@ -164,32 +174,65 @@ class AgentRunner:
         """Send a prompt to Claude and stream the response via callbacks.
 
         Starts the subprocess on first call; reuses it for subsequent calls.
-        If the process has died, restarts it with --resume to recover.
+        If a --resume session_id is stale (no such conversation), claude
+        exits without producing a result event; in that case we drop the
+        bad session_id and retry once with a fresh process.
         """
+        # Track whether we used --resume so we can recover from a stale id
+        resume_attempt_id = self.session_id
+        await self._do_one_turn(prompt, on_text, on_done, on_tool_use,
+                                on_tool_result, on_thinking,
+                                send_done=resume_attempt_id is None)
+
+        # If the resume attempt failed (no result event), the session_id
+        # is stale (the server's saved id no longer exists in claude's
+        # session storage — typically across server restarts).  Clear
+        # it and retry once with a fresh process.
+        if resume_attempt_id is not None and not self._got_result:
+            self.session_id = None
+            # Tear down anything left over
+            if self._proc and self._proc.returncode is None:
+                try:
+                    self._proc.stdin.close()
+                except Exception:
+                    pass
+            if self._read_task:
+                self._read_task.cancel()
+                self._read_task = None
+            self._proc = None
+            await self._do_one_turn(prompt, on_text, on_done, on_tool_use,
+                                    on_tool_result, on_thinking,
+                                    send_done=True)
+
+    async def _do_one_turn(self, prompt, on_text, on_done, on_tool_use,
+                           on_tool_result, on_thinking, send_done):
+        """One stdin write + wait-for-result cycle."""
         await self._ensure_process()
 
-        # Set callbacks for this turn
         self._on_text = on_text
-        self._on_done = on_done
+        # Only fire on_done from the read loop if this is the final
+        # attempt; otherwise the retry needs to control done emission.
+        self._on_done = on_done if send_done else None
         self._on_tool_use = on_tool_use
         self._on_tool_result = on_tool_result
         self._on_thinking = on_thinking
         self._full_text = ""
         self._current_msg_id = None
+        self._got_result = False
         self._turn_done = asyncio.Event()
 
-        # Send user message as JSON line to stdin
         msg = json.dumps({
             "type": "user",
             "message": {"role": "user", "content": prompt},
         }) + "\n"
-        self._proc.stdin.write(msg.encode())
-        await self._proc.stdin.drain()
+        try:
+            self._proc.stdin.write(msg.encode())
+            await self._proc.stdin.drain()
+        except Exception:
+            self._turn_done.set()
 
-        # Wait for the result event (or process exit)
         await self._turn_done.wait()
 
-        # Clear callbacks
         self._on_text = None
         self._on_done = None
         self._on_tool_use = None
