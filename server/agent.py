@@ -56,8 +56,27 @@ class AgentRunner:
     async def _read_stdout(self):
         """Continuously read stdout and dispatch events to callbacks."""
         proc = self._proc
-        async for line in proc.stdout:
-            line = line.decode("utf-8").strip()
+        try:
+            await self._read_stdout_inner(proc)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            # Any unexpected error in the read loop would otherwise
+            # silently kill this background task and leave run() hung
+            # forever on _turn_done.wait().  Log and signal turn done.
+            print(f"[_read_stdout] ERROR: {type(e).__name__}: {e}")
+        finally:
+            # Always wake up the turn, even if something went wrong —
+            # otherwise agent.run() hangs forever and the UI's working
+            # indicator never clears.
+            if self._turn_done and not self._turn_done.is_set():
+                self._turn_done.set()
+
+    async def _read_stdout_inner(self, proc):
+        async for raw_line in proc.stdout:
+            # Use errors="replace" so an unexpected non-UTF-8 byte
+            # doesn't kill the reader task.
+            line = raw_line.decode("utf-8", errors="replace").strip()
             if not line:
                 continue
 
@@ -158,7 +177,10 @@ class AgentRunner:
                 if self._turn_done:
                     self._turn_done.set()
 
-        # Process exited — signal turn done if still waiting
+        # Process exited — signal turn done if still waiting.
+        # The outer _read_stdout's finally will also cover this, but
+        # we fire on_done here with a "no result" payload in case the
+        # subprocess died mid-turn without emitting a result event.
         if self._turn_done and not self._turn_done.is_set():
             if self._on_done:
                 await self._on_done({
