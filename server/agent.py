@@ -181,13 +181,13 @@ class AgentRunner:
         # Track whether we used --resume so we can recover from a stale id
         resume_attempt_id = self.session_id
         await self._do_one_turn(prompt, on_text, on_done, on_tool_use,
-                                on_tool_result, on_thinking,
-                                send_done=resume_attempt_id is None)
+                                on_tool_result, on_thinking)
 
         # If the resume attempt failed (no result event), the session_id
         # is stale (the server's saved id no longer exists in claude's
         # session storage — typically across server restarts).  Clear
-        # it and retry once with a fresh process.
+        # it and retry once with a fresh process.  The retry's on_done
+        # will fire again; the client's finishStreaming() is idempotent.
         if resume_attempt_id is not None and not self._got_result:
             self.session_id = None
             # Tear down anything left over
@@ -201,18 +201,15 @@ class AgentRunner:
                 self._read_task = None
             self._proc = None
             await self._do_one_turn(prompt, on_text, on_done, on_tool_use,
-                                    on_tool_result, on_thinking,
-                                    send_done=True)
+                                    on_tool_result, on_thinking)
 
     async def _do_one_turn(self, prompt, on_text, on_done, on_tool_use,
-                           on_tool_result, on_thinking, send_done):
+                           on_tool_result, on_thinking):
         """One stdin write + wait-for-result cycle."""
         await self._ensure_process()
 
         self._on_text = on_text
-        # Only fire on_done from the read loop if this is the final
-        # attempt; otherwise the retry needs to control done emission.
-        self._on_done = on_done if send_done else None
+        self._on_done = on_done
         self._on_tool_use = on_tool_use
         self._on_tool_result = on_tool_result
         self._on_thinking = on_thinking
