@@ -264,6 +264,9 @@
   function loadSession(sessionId) {
     fetch('/api/sessions/' + sessionId).then(function(r) { return r.json(); }).then(function(session) {
       currentSessionId = session.id;
+      // Remember which session this tab is on so reload picks it up
+      // again (instead of falling back to "most recently messaged").
+      try { localStorage.setItem('ade_active_session', session.id); } catch (e) {}
 
       // Restore messages
       var messagesEl = document.getElementById('chat-messages');
@@ -303,6 +306,7 @@
       .then(function(r) { return r.json(); })
       .then(function(session) {
         currentSessionId = session.id;
+        try { localStorage.setItem('ade_active_session', session.id); } catch (e) {}
         document.getElementById('session-picker').style.display = 'none';
         // Reset agent session so it doesn't --resume the old one
         send({ type: 'reset_agent_session' });
@@ -384,10 +388,21 @@
   connect();
   cleanupStaleWorkspaces();
 
-  // Auto-resume the most recent session, or create a new one
+  // Resume this tab's previously-active session if we have one saved;
+  // otherwise fall back to the most recently messaged session, or
+  // create a new one.
   fetch('/api/sessions').then(function(r) { return r.json(); }).then(function(data) {
-    if (data.sessions && data.sessions.length > 0) {
-      loadSession(data.sessions[0].id);
+    var sessions = data.sessions || [];
+    var saved = null;
+    try { saved = localStorage.getItem('ade_active_session'); } catch (e) {}
+    var picked = null;
+    if (saved && sessions.some(function(s){ return s.id === saved; })) {
+      picked = saved;
+    } else if (sessions.length > 0) {
+      picked = sessions[0].id;
+    }
+    if (picked) {
+      loadSession(picked);
     } else {
       startNewSession();
     }
