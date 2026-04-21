@@ -49,6 +49,11 @@ class AgentRunner:
         self._on_thinking = None
         self._full_text = ""
         self._current_msg_id: str | None = None
+        # msg_id of the last text chunk we forwarded.  Used to insert
+        # a visible separator when claude emits a *new* assistant
+        # message with text after a previous one, so the user can tell
+        # where one reply ends and the next begins.
+        self._last_text_msg_id: str | None = None
         self._got_result: bool = False
         # Set True if the stdout reader raises — distinguishes "reader
         # crashed mid-stream" from "claude exited cleanly without a
@@ -152,8 +157,24 @@ class AgentRunner:
                     if block_type == "text":
                         text = block["text"]
                         if text != self._full_text:
+                            # If this text belongs to a different
+                            # assistant message than the last text we
+                            # forwarded, insert a visible separator so
+                            # the user can see where the previous reply
+                            # ended and the new one begins.  Only
+                            # between consecutive text blocks — tool_use
+                            # events already have their own UI block.
+                            if (
+                                self._last_text_msg_id is not None
+                                and msg_id
+                                and msg_id != self._last_text_msg_id
+                                and self._full_text == ""
+                                and self._on_text
+                            ):
+                                await self._on_text("\n\n---\n\n")
                             new_chunk = text[len(self._full_text):]
                             self._full_text = text
+                            self._last_text_msg_id = msg_id
                             if self._on_text and new_chunk:
                                 await self._on_text(new_chunk)
                     elif block_type == "tool_use" and self._on_tool_use:
@@ -313,6 +334,7 @@ class AgentRunner:
         self._on_thinking = on_thinking
         self._full_text = ""
         self._current_msg_id = None
+        self._last_text_msg_id = None
         self._got_result = False
         self._read_error = False
         self._turn_done = asyncio.Event()
