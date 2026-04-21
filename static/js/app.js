@@ -12,15 +12,16 @@
 
     ws.onopen = function() {
       console.log('WebSocket connected');
-      // If this is a reconnection (not the initial connect) and the
-      // agent was mid-response, the old WebSocket is dead and the
-      // server is still sending to it.  Clear the working indicator
-      // so the UI isn't stuck.
-      if (reconnectDelay > 1000 && window.Chat) {
-        window.Chat.setInputEnabled(true);
-      }
+      var isReconnect = reconnectDelay > 1000;
       reconnectDelay = 1000;
       flushPendingSends();
+      // On reconnect, the final streaming=false message may have been
+      // dropped by the server's send_active() because the old ws was
+      // already gone.  Ask the server whether a turn is actually in
+      // progress and let the `status` reply drive the indicator.
+      if (isReconnect) {
+        send({ type: 'status_query' });
+      }
     };
 
     ws.onmessage = function(event) {
@@ -67,6 +68,12 @@
   }
 
   function handleMessage(msg) {
+    if (msg.type === 'status') {
+      if (window.Chat && window.Chat.setInputEnabled) {
+        window.Chat.setInputEnabled(!msg.payload.turn_active);
+      }
+      return;
+    }
     if (msg.type === 'doc_update') {
       var payload = msg.payload;
       // Update open document on modify or create (atomic writes use delete+create)

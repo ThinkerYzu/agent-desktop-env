@@ -1,6 +1,32 @@
 import asyncio
 import json
+from datetime import datetime
 from pathlib import Path
+
+
+LOG_FILE = Path(__file__).parent.parent / "agent-stderr.log"
+
+# asyncio's StreamReader default line-buffer limit is 64 KiB.  Claude
+# stream-json events routinely exceed that when a tool result contains
+# a large file read — the reader then raises
+#   ValueError: Separator is found, but chunk is longer than limit
+# and dies mid-stream.  Give it plenty of headroom.
+_STDOUT_LINE_LIMIT = 16 * 1024 * 1024
+
+
+def _log_marker(message: str) -> None:
+    """Append a timestamped marker to the claude stderr log.
+
+    Claude's own stderr is piped to the same file, so these markers
+    interleave with its output and make it possible to tell which
+    process invocation produced which error text.
+    """
+    try:
+        ts = datetime.now().isoformat(timespec="seconds")
+        with open(LOG_FILE, "ab") as f:
+            f.write(f"\n===== [{ts}] {message} =====\n".encode())
+    except Exception:
+        pass
 
 
 class AgentRunner:
@@ -24,6 +50,11 @@ class AgentRunner:
         self._full_text = ""
         self._current_msg_id: str | None = None
         self._got_result: bool = False
+        # Set True if the stdout reader raises — distinguishes "reader
+        # crashed mid-stream" from "claude exited cleanly without a
+        # result event" (the stale --resume id case).  Only the latter
+        # should cause us to discard session_id.
+        self._read_error: bool = False
         self._turn_done: asyncio.Event | None = None
 
     async def _ensure_process(self):
@@ -42,13 +73,24 @@ class AgentRunner:
         if self.session_id:
             cmd.extend(["--resume", self.session_id])
 
-        self._proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
-            cwd=str(self.project_dir),
-        )
+        _log_marker(f"claude start (resume={self.session_id})")
+
+        # Pipe stderr to a shared log file so crashes are diagnosable.
+        # We close our end right after spawn — the subprocess keeps its
+        # own fd, so it can still write while our process releases the
+        # handle.
+        stderr_fh = open(LOG_FILE, "ab")
+        try:
+            self._proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=stderr_fh,
+                cwd=str(self.project_dir),
+                limit=_STDOUT_LINE_LIMIT,
+            )
+        finally:
+            stderr_fh.close()
 
         # Start background reader for stdout
         self._read_task = asyncio.create_task(self._read_stdout())
@@ -64,7 +106,12 @@ class AgentRunner:
             # Any unexpected error in the read loop would otherwise
             # silently kill this background task and leave run() hung
             # forever on _turn_done.wait().  Log and signal turn done.
-            print(f"[_read_stdout] ERROR: {type(e).__name__}: {e}")
+            # Flag the error so run() doesn't mistake this for a stale
+            # --resume id and clear session_id.
+            self._read_error = True
+            err = f"[_read_stdout] ERROR: {type(e).__name__}: {e}"
+            print(err)
+            _log_marker(err)
         finally:
             # Always wake up the turn, even if something went wrong —
             # otherwise agent.run() hangs forever and the UI's working
@@ -177,10 +224,20 @@ class AgentRunner:
                 if self._turn_done:
                     self._turn_done.set()
 
-        # Process exited — signal turn done if still waiting.
-        # The outer _read_stdout's finally will also cover this, but
-        # we fire on_done here with a "no result" payload in case the
-        # subprocess died mid-turn without emitting a result event.
+        # Process exited — log its exit status so a silent crash is
+        # visible in agent-stderr.log alongside claude's own stderr.
+        # proc.returncode may still be None if reap hasn't happened yet;
+        # wait briefly so we record a real status.
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=1.0)
+        except Exception:
+            pass
+        _log_marker(f"claude exit rc={proc.returncode}")
+
+        # Signal turn done if still waiting.  The outer _read_stdout's
+        # finally will also cover this, but we fire on_done here with a
+        # "no result" payload in case the subprocess died mid-turn
+        # without emitting a result event.
         if self._turn_done and not self._turn_done.is_set():
             if self._on_done:
                 await self._on_done({
@@ -205,14 +262,33 @@ class AgentRunner:
         await self._do_one_turn(prompt, on_text, on_done, on_tool_use,
                                 on_tool_result, on_thinking)
 
-        # If the resume attempt failed (no result event), the session_id
-        # is stale (the server's saved id no longer exists in claude's
-        # session storage — typically across server restarts).  Clear
-        # it and retry once with a fresh process.  The retry's on_done
-        # will fire again; the client's finishStreaming() is idempotent.
-        if resume_attempt_id is not None and not self._got_result:
+        # Two failure modes look alike (no result event) but must be
+        # handled differently:
+        #   (a) Reader crashed mid-stream (_read_error=True) — the
+        #       subprocess may still be running, but we can no longer
+        #       parse its output.  Tear it down and KEEP session_id so
+        #       the next chat resumes the same conversation.  Do not
+        #       retry in this turn; the user gets an empty response
+        #       and can try again.
+        #   (b) claude exited cleanly without a result event — the
+        #       --resume id is stale (e.g. across server restarts).
+        #       Drop session_id and retry once without --resume.
+        if not self._got_result and self._read_error:
+            # (a) Reader crash — preserve session_id, just tear down proc.
+            if self._proc and self._proc.returncode is None:
+                try:
+                    self._proc.stdin.close()
+                except Exception:
+                    pass
+            if self._read_task:
+                self._read_task.cancel()
+                self._read_task = None
+            self._proc = None
+        elif resume_attempt_id is not None and not self._got_result:
+            # (b) Stale --resume id — discard and retry fresh.  The
+            # retry's on_done will fire again; the client's
+            # finishStreaming() is idempotent.
             self.session_id = None
-            # Tear down anything left over
             if self._proc and self._proc.returncode is None:
                 try:
                     self._proc.stdin.close()
@@ -238,6 +314,7 @@ class AgentRunner:
         self._full_text = ""
         self._current_msg_id = None
         self._got_result = False
+        self._read_error = False
         self._turn_done = asyncio.Event()
 
         msg = json.dumps({

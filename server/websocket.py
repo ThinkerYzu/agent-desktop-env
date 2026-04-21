@@ -14,6 +14,11 @@ class ConnectionManager:
         # The single active client.  Only one tab/window can use ADE at
         # a time — see connect() for displacement logic.
         self._active_ws: WebSocket | None = None
+        # True between the start and end of an agent turn.  Used so a
+        # reconnecting client can query whether the "working" indicator
+        # should still be shown, even if the final streaming=False
+        # message was dropped because the old ws was already gone.
+        self._turn_active: bool = False
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -102,6 +107,14 @@ class ConnectionManager:
 
         elif msg_type == "reset_agent_session":
             await self.agent.terminate()
+
+        elif msg_type == "status_query":
+            # Reply only to the asking client so a reconnecting tab can
+            # resync its "working" indicator with reality.
+            await self.send_to(websocket, json.dumps({
+                "type": "status",
+                "payload": {"turn_active": self._turn_active},
+            }))
 
         elif msg_type == "eval":
             await self.send_to_others(websocket, data)
@@ -204,6 +217,7 @@ class ConnectionManager:
                 },
             })
 
+        self._turn_active = True
         try:
             await self.agent.run(
                 prompt,
@@ -216,9 +230,13 @@ class ConnectionManager:
         except Exception:
             pass
         finally:
+            self._turn_active = False
             # Always send a done signal after agent.run() returns so the
             # UI clears the working indicator even if on_done was lost.
-            # The client's finishStreaming() is idempotent.
+            # The client's finishStreaming() is idempotent.  If the ws
+            # is gone this drop is silent — the client's status_query
+            # on reconnect is what rescues a stuck indicator in that
+            # case.
             try:
                 await send_active({
                     "type": "chat",
