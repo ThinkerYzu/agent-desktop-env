@@ -4,18 +4,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-SESSIONS_DIR = Path(__file__).parent.parent / "sessions"
+SESSIONS_BASE_DIR = Path(__file__).parent.parent / "sessions"
 
 
-def ensure_sessions_dir():
-    SESSIONS_DIR.mkdir(exist_ok=True)
+def get_sessions_dir(project_name: str) -> Path:
+    """Get sessions directory for a project."""
+    project_sessions = SESSIONS_BASE_DIR / project_name
+    project_sessions.mkdir(parents=True, exist_ok=True)
+    return project_sessions
 
 
-def list_sessions() -> list[dict]:
+def list_sessions(project_name: str) -> list[dict]:
     """Return a list of session summaries, sorted by lastActive descending."""
-    ensure_sessions_dir()
+    sessions_dir = get_sessions_dir(project_name)
     sessions = []
-    for f in SESSIONS_DIR.glob("*.json"):
+    for f in sessions_dir.glob("*.json"):
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
             sessions.append({
@@ -32,10 +35,10 @@ def list_sessions() -> list[dict]:
     return sessions
 
 
-def get_session(session_id: str) -> dict | None:
+def get_session(project_name: str, session_id: str) -> dict | None:
     """Load a full session by ID."""
-    ensure_sessions_dir()
-    path = SESSIONS_DIR / f"{session_id}.json"
+    sessions_dir = get_sessions_dir(project_name)
+    path = sessions_dir / f"{session_id}.json"
     if not path.is_file():
         return None
     try:
@@ -44,9 +47,8 @@ def get_session(session_id: str) -> dict | None:
         return None
 
 
-def create_session() -> dict:
+def create_session(project_name: str) -> dict:
     """Create a new empty session."""
-    ensure_sessions_dir()
     now = datetime.now(timezone.utc).isoformat()
     session = {
         "id": str(uuid.uuid4()),
@@ -59,19 +61,19 @@ def create_session() -> dict:
         },
         "agentSessionId": None,
     }
-    _save(session)
+    _save(project_name, session)
     return session
 
 
-def save_session(session: dict):
+def save_session(project_name: str, session: dict):
     """Save a session to disk."""
     session["lastActive"] = datetime.now(timezone.utc).isoformat()
-    _save(session)
+    _save(project_name, session)
 
 
-def add_message(session_id: str, role: str, content: str, annotation=None):
+def add_message(project_name: str, session_id: str, role: str, content: str, annotation=None):
     """Add a message to a session and save."""
-    session = get_session(session_id)
+    session = get_session(project_name, session_id)
     if not session:
         return None
 
@@ -84,14 +86,14 @@ def add_message(session_id: str, role: str, content: str, annotation=None):
         msg["annotation"] = annotation
 
     session["messages"].append(msg)
-    save_session(session)
+    save_session(project_name, session)
     return session
 
 
-def update_workspace(session_id: str, open_tabs: list[str], active_tab: str | None,
+def update_workspace(project_name: str, session_id: str, open_tabs: list[str], active_tab: str | None,
                      agent_session_id: str | None = None):
     """Update the workspace state of a session."""
-    session = get_session(session_id)
+    session = get_session(project_name, session_id)
     if not session:
         return None
     session["workspace"] = {
@@ -102,13 +104,13 @@ def update_workspace(session_id: str, open_tabs: list[str], active_tab: str | No
     # (workspace updates from tab changes don't include it).
     if agent_session_id is not None:
         session["agentSessionId"] = agent_session_id
-    save_session(session)
+    save_session(project_name, session)
     return session
 
 
-def _save(session: dict):
-    ensure_sessions_dir()
-    path = SESSIONS_DIR / f"{session['id']}.json"
+def _save(project_name: str, session: dict):
+    sessions_dir = get_sessions_dir(project_name)
+    path = sessions_dir / f"{session['id']}.json"
     path.write_text(json.dumps(session, indent=2), encoding="utf-8")
 
 

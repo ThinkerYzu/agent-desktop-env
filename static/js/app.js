@@ -1,6 +1,14 @@
 (function() {
   'use strict';
 
+  // Extract project name from URL path (e.g., /myproject -> "myproject")
+  var projectName = window.location.pathname.split('/').filter(Boolean)[0];
+  if (!projectName) {
+    console.error('No project name in URL');
+    document.body.innerHTML = '<div style="color:#f88;padding:2rem;text-align:center;">Error: No project specified in URL</div>';
+    return;
+  }
+
   var ws = null;
   var reconnectDelay = 1000;
   var currentSessionId = null;
@@ -8,7 +16,7 @@
 
   function connect() {
     var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(protocol + '//' + location.host + '/ws');
+    ws = new WebSocket(protocol + '//' + location.host + '/ws/' + projectName);
 
     ws.onopen = function() {
       console.log('WebSocket connected');
@@ -141,7 +149,7 @@
   // ── localStorage workspace persistence ──
 
   function workspaceKey() {
-    return currentSessionId ? 'ade_workspace_' + currentSessionId : null;
+    return currentSessionId ? 'ade_workspace_' + projectName + '_' + currentSessionId : null;
   }
 
   function saveWorkspaceToLocal() {
@@ -200,7 +208,7 @@
 
   function saveAgentSessionId(agentSessionId) {
     if (!currentSessionId) return;
-    fetch('/api/sessions/' + currentSessionId + '/workspace', {
+    fetch('/api/' + projectName + '/sessions/' + currentSessionId + '/workspace', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -213,7 +221,7 @@
 
   function saveMessageToSession(role, content, annotation) {
     if (!currentSessionId) return;
-    fetch('/api/sessions/' + currentSessionId + '/messages', {
+    fetch('/api/' + projectName + '/sessions/' + currentSessionId + '/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: role, content: content, annotation: annotation || null }),
@@ -222,7 +230,7 @@
 
   function saveWorkspaceToServer() {
     if (!currentSessionId) return;
-    fetch('/api/sessions/' + currentSessionId + '/workspace', {
+    fetch('/api/' + projectName + '/sessions/' + currentSessionId + '/workspace', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -244,7 +252,7 @@
   }
 
   function showSessionPicker() {
-    fetch('/api/sessions').then(function(r) { return r.json(); }).then(function(data) {
+    fetch('/api/' + projectName + '/sessions').then(function(r) { return r.json(); }).then(function(data) {
       var sessions = data.sessions || [];
       var picker = document.getElementById('session-picker');
       var list = document.getElementById('session-list');
@@ -269,7 +277,7 @@
   }
 
   function loadSession(sessionId) {
-    fetch('/api/sessions/' + sessionId).then(function(r) { return r.json(); }).then(function(session) {
+    fetch('/api/' + projectName + '/sessions/' + sessionId).then(function(r) { return r.json(); }).then(function(session) {
       currentSessionId = session.id;
       // Remember which session this tab is on so reload picks it up
       // again (instead of falling back to "most recently messaged").
@@ -309,7 +317,7 @@
   }
 
   function startNewSession() {
-    fetch('/api/sessions', { method: 'POST' })
+    fetch('/api/' + projectName + '/sessions', { method: 'POST' })
       .then(function(r) { return r.json(); })
       .then(function(session) {
         currentSessionId = session.id;
@@ -323,7 +331,7 @@
   }
 
   function initAgentWithWarmup() {
-    fetch('/api/config')
+    fetch('/api/' + projectName + '/config')
       .then(function(r) { return r.json(); })
       .then(function(cfg) {
         if (cfg.init_file_exists && cfg.init_file) {
@@ -351,7 +359,7 @@
 
   function cleanupStaleWorkspaces() {
     var MAX_AGE_MS = 180 * 24 * 60 * 60 * 1000; // 180 days
-    fetch('/api/sessions').then(function(r) { return r.json(); }).then(function(data) {
+    fetch('/api/' + projectName + '/sessions').then(function(r) { return r.json(); }).then(function(data) {
       var sessions = data.sessions || [];
       var activeIds = {};
       var now = Date.now();
@@ -364,13 +372,18 @@
 
       // Remove localStorage keys for sessions that are stale or no longer exist
       var keysToRemove = [];
+      var prefix = 'ade_workspace_' + projectName + '_';
       for (var i = 0; i < localStorage.length; i++) {
         var key = localStorage.key(i);
-        if (key && key.indexOf('ade_workspace_') === 0) {
-          var id = key.substring('ade_workspace_'.length);
+        if (key && key.indexOf(prefix) === 0) {
+          var id = key.substring(prefix.length);
           if (!activeIds[id]) {
             keysToRemove.push(key);
           }
+        }
+        // Also clean up old format keys (without project name)
+        else if (key && key.match(/^ade_workspace_[a-f0-9-]+$/)) {
+          keysToRemove.push(key);
         }
       }
       keysToRemove.forEach(function(key) {
@@ -398,7 +411,7 @@
   // Resume this tab's previously-active session if we have one saved;
   // otherwise fall back to the most recently messaged session, or
   // create a new one.
-  fetch('/api/sessions').then(function(r) { return r.json(); }).then(function(data) {
+  fetch('/api/' + projectName + '/sessions').then(function(r) { return r.json(); }).then(function(data) {
     var sessions = data.sessions || [];
     var saved = null;
     try { saved = localStorage.getItem('ade_active_session'); } catch (e) {}

@@ -1,6 +1,9 @@
 (function() {
   'use strict';
 
+  // Extract project name from URL path
+  var projectName = window.location.pathname.split('/').filter(Boolean)[0];
+
   // Configure marked to generate heading IDs for fragment links
   if (typeof marked !== 'undefined') {
     var renderer = new marked.Renderer();
@@ -59,7 +62,7 @@
       return Promise.resolve();
     }
 
-    return fetch('/api/file?path=' + encodeURIComponent(path))
+    return fetch('/api/' + projectName + '/file?path=' + encodeURIComponent(path))
       .then(function(r) { return r.text(); })
       .then(function(text) {
         var tab = { path: path, content: text, scrollTop: 0 };

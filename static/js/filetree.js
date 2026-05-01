@@ -1,6 +1,9 @@
 (function() {
   'use strict';
 
+  // Extract project name from URL path
+  var projectName = window.location.pathname.split('/').filter(Boolean)[0];
+
   var container = document.getElementById('file-tree-content');
 
   function createTreeNode(entry) {
@@ -65,7 +68,7 @@
   }
 
   function loadDirectory(path, targetEl) {
-    fetch('/api/files?path=' + encodeURIComponent(path))
+    fetch('/api/' + projectName + '/files?path=' + encodeURIComponent(path))
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.entries) {
@@ -83,7 +86,7 @@
     if (refreshTimer) clearTimeout(refreshTimer);
     refreshTimer = setTimeout(function() {
       refreshTimer = null;
-      fetch('/api/files?path=')
+      fetch('/api/' + projectName + '/files?path=')
         .then(function(r) { return r.json(); })
         .then(function(data) {
           container.innerHTML = '';
@@ -116,7 +119,7 @@
   }
 
   // Show project directory name in the Files header
-  fetch('/api/health').then(function(r) { return r.json(); }).then(function(data) {
+  fetch('/api/' + projectName + '/health').then(function(r) { return r.json(); }).then(function(data) {
     if (data.project_dir) {
       var name = data.project_dir.split('/').pop();
       var header = document.querySelector('#file-tree .panel-header');
