@@ -56,10 +56,13 @@ class AgentRunner:
         self._last_text_msg_id: str | None = None
         self._got_result: bool = False
         # Set True if the stdout reader raises — distinguishes "reader
-        # crashed mid-stream" from "claude exited cleanly without a
-        # result event" (the stale --resume id case).  Only the latter
-        # should cause us to discard session_id.
+        # crashed mid-stream" from other no-result cases.
         self._read_error: bool = False
+        # Set True when claude emits an explicit error result event
+        # (e.g. stale --resume id).  Distinct from a process killed by
+        # SIGTERM/OOM, which emits no result event at all.  Only this
+        # case should cause session_id to be discarded and retried.
+        self._got_error_result: bool = False
         self._turn_done: asyncio.Event | None = None
 
     async def _ensure_process(self):
@@ -217,6 +220,8 @@ class AgentRunner:
                     sid = event.get("session_id")
                     if sid:
                         self.session_id = sid
+                else:
+                    self._got_error_result = True
 
                 result_text = event.get("result", "")
                 # The `result` event's text is the final assistant
@@ -274,26 +279,28 @@ class AgentRunner:
         """Send a prompt to Claude and stream the response via callbacks.
 
         Starts the subprocess on first call; reuses it for subsequent calls.
-        If a --resume session_id is stale (no such conversation), claude
-        exits without producing a result event; in that case we drop the
-        bad session_id and retry once with a fresh process.
+        Handles three failure cases: reader crash (preserve session_id),
+        explicit error result/stale --resume (drop session_id and retry),
+        and process killed by SIGTERM/OOM (preserve session_id for next turn).
         """
-        # Track whether we used --resume so we can recover from a stale id
-        resume_attempt_id = self.session_id
         await self._do_one_turn(prompt, on_text, on_done, on_tool_use,
                                 on_tool_result, on_thinking)
 
-        # Two failure modes look alike (no result event) but must be
-        # handled differently:
+        # Three failure modes after a turn with no successful result event:
         #   (a) Reader crashed mid-stream (_read_error=True) — the
         #       subprocess may still be running, but we can no longer
         #       parse its output.  Tear it down and KEEP session_id so
         #       the next chat resumes the same conversation.  Do not
         #       retry in this turn; the user gets an empty response
         #       and can try again.
-        #   (b) claude exited cleanly without a result event — the
-        #       --resume id is stale (e.g. across server restarts).
-        #       Drop session_id and retry once without --resume.
+        #   (b) claude emitted an explicit error result event
+        #       (_got_error_result=True) — the --resume id is stale
+        #       (e.g. across server restarts).  Drop session_id and
+        #       retry once without --resume.
+        #   (c) Process died without any result event and without a
+        #       reader error — killed by SIGTERM/OOM mid-turn.  KEEP
+        #       session_id so the next turn can --resume the same
+        #       conversation.  Do not retry in this turn.
         if not self._got_result and self._read_error:
             # (a) Reader crash — preserve session_id, just tear down proc.
             if self._proc and self._proc.returncode is None:
@@ -305,7 +312,7 @@ class AgentRunner:
                 self._read_task.cancel()
                 self._read_task = None
             self._proc = None
-        elif resume_attempt_id is not None and not self._got_result:
+        elif self._got_error_result:
             # (b) Stale --resume id — discard and retry fresh.  The
             # retry's on_done will fire again; the client's
             # finishStreaming() is idempotent.
@@ -321,6 +328,18 @@ class AgentRunner:
             self._proc = None
             await self._do_one_turn(prompt, on_text, on_done, on_tool_use,
                                     on_tool_result, on_thinking)
+        elif not self._got_result:
+            # (c) Process killed (SIGTERM/OOM) — preserve session_id,
+            # tear down proc so _ensure_process restarts with --resume.
+            if self._proc and self._proc.returncode is None:
+                try:
+                    self._proc.stdin.close()
+                except Exception:
+                    pass
+            if self._read_task:
+                self._read_task.cancel()
+                self._read_task = None
+            self._proc = None
 
     async def _do_one_turn(self, prompt, on_text, on_done, on_tool_use,
                            on_tool_result, on_thinking):
@@ -337,6 +356,7 @@ class AgentRunner:
         self._last_text_msg_id = None
         self._got_result = False
         self._read_error = False
+        self._got_error_result = False
         self._turn_done = asyncio.Event()
 
         msg = json.dumps({
