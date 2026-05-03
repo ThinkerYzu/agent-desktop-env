@@ -140,7 +140,10 @@ class ProjectManager:
         to_remove = []
         for name, instance in self.projects.items():
             # Never kill a project whose agent is actively processing a turn.
+            # Also reset the idle timer so it doesn't expire the moment a
+            # long-running turn finishes.
             if instance.manager._turn_active:
+                await instance.touch()
                 continue
             if await instance.is_idle(self.idle_timeout):
                 await instance.shutdown(clear_session=False)
