@@ -21,14 +21,16 @@ from pathlib import Path
 import pytest
 import websockets
 
-WS_URL = "ws://127.0.0.1:9800/ws"
+PROJECT_NAME = "agent-desktop-env"
+WS_URL = f"ws://127.0.0.1:9800/ws/{PROJECT_NAME}"
+WS_EVAL_URL = f"ws://127.0.0.1:9800/ws/{PROJECT_NAME}?eval=true"
 PROJECT_DIR = Path(__file__).parent.parent.parent.parent / "proj_docs" / "agent-desktop-env"
 
 
 async def browser_eval(code, timeout=5.0):
     """Send JS code to the browser via eval channel and return the result."""
     eval_id = str(uuid.uuid4())
-    async with websockets.connect(WS_URL) as ws:
+    async with websockets.connect(WS_EVAL_URL) as ws:
         await ws.send(json.dumps({
             "type": "eval",
             "id": eval_id,
@@ -302,9 +304,9 @@ class TestDocumentViewer:
         tabs = get_tab_names()
         assert "SPEC.md" in tabs
         assert "DESIGN.md" in tabs
-        # Verify we're still on localhost:9800 (not navigated away)
+        # Verify we're still on port 9800 (not navigated away)
         url = eval_js("location.href")
-        assert "localhost:9800" in url
+        assert ":9800" in url
 
     def test_fragment_link_scrolls(self):
         """Clicking a #fragment link scrolls to the heading in the same document."""

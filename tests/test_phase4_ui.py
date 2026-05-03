@@ -22,7 +22,9 @@ from pathlib import Path
 import pytest
 import websockets
 
-WS_URL = "ws://127.0.0.1:9800/ws"
+PROJECT_NAME = "agent-desktop-env"
+WS_URL = f"ws://127.0.0.1:9800/ws/{PROJECT_NAME}"
+WS_EVAL_URL = f"ws://127.0.0.1:9800/ws/{PROJECT_NAME}?eval=true"
 PROJECT_DIR = Path(__file__).parent.parent.parent.parent / "proj_docs" / "agent-desktop-env"
 
 
@@ -34,7 +36,7 @@ class EvalClient:
         self.loop = asyncio.new_event_loop()
 
     def connect(self):
-        self.ws = self.loop.run_until_complete(websockets.connect(WS_URL))
+        self.ws = self.loop.run_until_complete(websockets.connect(WS_EVAL_URL))
 
     def close(self):
         if self.ws:

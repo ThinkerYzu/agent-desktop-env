@@ -207,17 +207,31 @@ async def update_session_workspace(project_name: str, session_id: str, body: dic
 
 
 @app.websocket("/ws/{project_name}")
-async def websocket_endpoint(websocket: WebSocket, project_name: str):
+async def websocket_endpoint(websocket: WebSocket, project_name: str, eval: bool = Query(False)):
+    """Main WebSocket endpoint.
+
+    Pass ?eval=true for test eval connections — these receive broadcast events
+    and can exchange eval/eval_result messages without displacing the browser.
+    """
     try:
         project = await project_manager.get_project(project_name)
     except ValueError:
         await websocket.close(code=1008, reason="Project not found")
         return
 
-    await project.manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            await project.manager.handle_message(websocket, data)
-    except WebSocketDisconnect:
-        project.manager.disconnect(websocket)
+    if eval:
+        await project.manager.connect_eval(websocket)
+        try:
+            while True:
+                data = await websocket.receive_text()
+                await project.manager.handle_message(websocket, data)
+        except WebSocketDisconnect:
+            project.manager.disconnect_eval(websocket)
+    else:
+        await project.manager.connect(websocket)
+        try:
+            while True:
+                data = await websocket.receive_text()
+                await project.manager.handle_message(websocket, data)
+        except WebSocketDisconnect:
+            project.manager.disconnect(websocket)

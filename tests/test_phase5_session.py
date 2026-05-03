@@ -17,7 +17,9 @@ import httpx
 import pytest
 
 BASE_URL = "http://127.0.0.1:9800"
-SESSIONS_DIR = Path(__file__).parent.parent / "sessions"
+PROJECT_NAME = "agent-desktop-env"
+SESSIONS_DIR = Path(__file__).parent.parent / "sessions" / PROJECT_NAME
+API_SESSIONS = f"/api/{PROJECT_NAME}/sessions"
 
 
 @pytest.fixture
@@ -29,7 +31,7 @@ def http():
 @pytest.fixture
 def session(http):
     """Create a fresh session and clean up after."""
-    r = http.post("/api/sessions")
+    r = http.post(API_SESSIONS)
     data = r.json()
     yield data
     # Cleanup
@@ -38,8 +40,8 @@ def session(http):
 
 
 def test_create_session(http):
-    """POST /api/sessions creates a new session."""
-    r = http.post("/api/sessions")
+    """POST /api/{project}/sessions creates a new session."""
+    r = http.post(API_SESSIONS)
     assert r.status_code == 200
     data = r.json()
     assert "id" in data
@@ -51,8 +53,8 @@ def test_create_session(http):
 
 
 def test_list_sessions(http, session):
-    """GET /api/sessions lists sessions."""
-    r = http.get("/api/sessions")
+    """GET /api/{project}/sessions lists sessions."""
+    r = http.get(API_SESSIONS)
     assert r.status_code == 200
     data = r.json()
     ids = [s["id"] for s in data["sessions"]]
@@ -60,8 +62,8 @@ def test_list_sessions(http, session):
 
 
 def test_get_session(http, session):
-    """GET /api/sessions/{id} returns the full session."""
-    r = http.get(f"/api/sessions/{session['id']}")
+    """GET /api/{project}/sessions/{id} returns the full session."""
+    r = http.get(f"{API_SESSIONS}/{session['id']}")
     assert r.status_code == 200
     data = r.json()
     assert data["id"] == session["id"]
@@ -70,21 +72,21 @@ def test_get_session(http, session):
 
 
 def test_get_nonexistent_session(http):
-    """GET /api/sessions/{id} returns 404 for missing session."""
-    r = http.get("/api/sessions/nonexistent-id")
+    """GET /api/{project}/sessions/{id} returns 404 for missing session."""
+    r = http.get(f"{API_SESSIONS}/nonexistent-id")
     assert r.status_code == 404
 
 
 def test_add_message(http, session):
-    """POST /api/sessions/{id}/messages adds a message."""
+    """POST /api/{project}/sessions/{id}/messages adds a message."""
     r = http.post(
-        f"/api/sessions/{session['id']}/messages",
+        f"{API_SESSIONS}/{session['id']}/messages",
         json={"role": "user", "content": "hello"},
     )
     assert r.status_code == 200
 
     # Verify the message was saved
-    r = http.get(f"/api/sessions/{session['id']}")
+    r = http.get(f"{API_SESSIONS}/{session['id']}")
     data = r.json()
     assert len(data["messages"]) == 1
     assert data["messages"][0]["role"] == "user"
@@ -101,12 +103,12 @@ def test_add_message_with_annotation(http, session):
         "endLine": 15,
     }
     r = http.post(
-        f"/api/sessions/{session['id']}/messages",
+        f"{API_SESSIONS}/{session['id']}/messages",
         json={"role": "user", "content": "explain this", "annotation": annotation},
     )
     assert r.status_code == 200
 
-    r = http.get(f"/api/sessions/{session['id']}")
+    r = http.get(f"{API_SESSIONS}/{session['id']}")
     msg = r.json()["messages"][0]
     assert msg["annotation"]["file"] == "SPEC.md"
     assert msg["annotation"]["startLine"] == 10
@@ -114,14 +116,14 @@ def test_add_message_with_annotation(http, session):
 
 def test_multiple_messages(http, session):
     """Multiple messages are stored in order."""
-    http.post(f"/api/sessions/{session['id']}/messages",
+    http.post(f"{API_SESSIONS}/{session['id']}/messages",
               json={"role": "user", "content": "first"})
-    http.post(f"/api/sessions/{session['id']}/messages",
+    http.post(f"{API_SESSIONS}/{session['id']}/messages",
               json={"role": "assistant", "content": "second"})
-    http.post(f"/api/sessions/{session['id']}/messages",
+    http.post(f"{API_SESSIONS}/{session['id']}/messages",
               json={"role": "user", "content": "third"})
 
-    r = http.get(f"/api/sessions/{session['id']}")
+    r = http.get(f"{API_SESSIONS}/{session['id']}")
     msgs = r.json()["messages"]
     assert len(msgs) == 3
     assert [m["content"] for m in msgs] == ["first", "second", "third"]
@@ -129,14 +131,14 @@ def test_multiple_messages(http, session):
 
 
 def test_update_workspace(http, session):
-    """POST /api/sessions/{id}/workspace updates workspace state."""
+    """POST /api/{project}/sessions/{id}/workspace updates workspace state."""
     r = http.post(
-        f"/api/sessions/{session['id']}/workspace",
+        f"{API_SESSIONS}/{session['id']}/workspace",
         json={"openTabs": ["SPEC.md", "DESIGN.md"], "activeTab": "DESIGN.md"},
     )
     assert r.status_code == 200
 
-    r = http.get(f"/api/sessions/{session['id']}")
+    r = http.get(f"{API_SESSIONS}/{session['id']}")
     ws = r.json()["workspace"]
     assert ws["openTabs"] == ["SPEC.md", "DESIGN.md"]
     assert ws["activeTab"] == "DESIGN.md"
@@ -148,25 +150,25 @@ def test_session_last_active_updated(http, session):
     import time
     time.sleep(0.1)
 
-    http.post(f"/api/sessions/{session['id']}/messages",
+    http.post(f"{API_SESSIONS}/{session['id']}/messages",
               json={"role": "user", "content": "update"})
 
-    r = http.get(f"/api/sessions/{session['id']}")
+    r = http.get(f"{API_SESSIONS}/{session['id']}")
     assert r.json()["lastActive"] > original
 
 
 def test_list_sessions_sorted_by_recent(http):
     """Sessions are listed most recent first."""
-    s1 = http.post("/api/sessions").json()
+    s1 = http.post(API_SESSIONS).json()
     import time
     time.sleep(0.1)
-    s2 = http.post("/api/sessions").json()
+    s2 = http.post(API_SESSIONS).json()
     time.sleep(0.1)
-    http.post(f"/api/sessions/{s2['id']}/messages",
+    http.post(f"{API_SESSIONS}/{s2['id']}/messages",
               json={"role": "user", "content": "newer"})
 
     try:
-        r = http.get("/api/sessions")
+        r = http.get(API_SESSIONS)
         sessions = r.json()["sessions"]
         ids = [s["id"] for s in sessions]
         assert ids.index(s2["id"]) < ids.index(s1["id"])
@@ -177,12 +179,12 @@ def test_list_sessions_sorted_by_recent(http):
 
 def test_session_preview(http):
     """Session list shows preview from first user message."""
-    s = http.post("/api/sessions").json()
-    http.post(f"/api/sessions/{s['id']}/messages",
+    s = http.post(API_SESSIONS).json()
+    http.post(f"{API_SESSIONS}/{s['id']}/messages",
               json={"role": "user", "content": "what is the meaning of life"})
 
     try:
-        r = http.get("/api/sessions")
+        r = http.get(API_SESSIONS)
         session_info = next(x for x in r.json()["sessions"] if x["id"] == s["id"])
         assert "meaning of life" in session_info["preview"]
     finally:

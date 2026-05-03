@@ -21,7 +21,9 @@ import pytest
 import websockets
 
 BASE_URL = "http://127.0.0.1:9800"
-WS_URL = "ws://127.0.0.1:9800/ws"
+PROJECT_NAME = "agent-desktop-env"
+WS_URL = f"ws://127.0.0.1:9800/ws/{PROJECT_NAME}"
+WS_EVAL_URL = f"ws://127.0.0.1:9800/ws/{PROJECT_NAME}?eval=true"
 PROJECT_DIR = Path(__file__).parent.parent.parent.parent / "proj_docs" / "agent-desktop-env"
 
 
@@ -39,7 +41,8 @@ def reset_agent():
     conversation context leaks between tests without this reset.
     """
     async def _reset():
-        async with websockets.connect(WS_URL) as ws:
+        # Use eval endpoint so we don't displace the browser
+        async with websockets.connect(WS_EVAL_URL) as ws:
             await ws.send(json.dumps({"type": "reset_agent_session"}))
             # Give the server time to complete agent.terminate()
             # before closing the socket (terminate can take up to 5s).
@@ -50,7 +53,7 @@ def reset_agent():
 
 def test_server_is_running(http_client):
     """Prerequisite: server must be running."""
-    r = http_client.get("/api/health")
+    r = http_client.get(f"/api/{PROJECT_NAME}/health")
     assert r.status_code == 200
 
 

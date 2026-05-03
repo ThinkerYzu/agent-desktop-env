@@ -19,9 +19,12 @@ import httpx
 import pytest
 import websockets
 
-WS_URL = "ws://127.0.0.1:9800/ws"
+PROJECT_NAME = "agent-desktop-env"
+WS_URL = f"ws://127.0.0.1:9800/ws/{PROJECT_NAME}"
+WS_EVAL_URL = f"ws://127.0.0.1:9800/ws/{PROJECT_NAME}?eval=true"
 BASE_URL = "http://127.0.0.1:9800"
-SESSIONS_DIR = Path(__file__).parent.parent / "sessions"
+SESSIONS_DIR = Path(__file__).parent.parent / "sessions" / PROJECT_NAME
+API_SESSIONS = f"/api/{PROJECT_NAME}/sessions"
 
 
 class EvalClient:
@@ -30,7 +33,7 @@ class EvalClient:
         self.loop = asyncio.new_event_loop()
 
     def connect(self):
-        self.ws = self.loop.run_until_complete(websockets.connect(WS_URL))
+        self.ws = self.loop.run_until_complete(websockets.connect(WS_EVAL_URL))
 
     def close(self):
         if self.ws:
@@ -234,8 +237,8 @@ class TestSessionPicker:
     def test_auto_resumes_last_session(self, client, http):
         """On page load, auto-resumes the most recent session without showing picker."""
         # Create a session with a message
-        s = http.post("/api/sessions").json()
-        http.post(f"/api/sessions/{s['id']}/messages",
+        s = http.post(API_SESSIONS).json()
+        http.post(f"{API_SESSIONS}/{s['id']}/messages",
                   json={"role": "user", "content": "auto-resume test"})
 
         try:
@@ -336,7 +339,7 @@ class TestSessionIntegration:
 
         # Check the session file
         try:
-            r = http.get(f"/api/sessions/{session_id}")
+            r = http.get(f"{API_SESSIONS}/{session_id}")
             data = r.json()
             user_msgs = [m for m in data["messages"] if m["role"] == "user"]
             assert any("persistence test" in m["content"] for m in user_msgs)

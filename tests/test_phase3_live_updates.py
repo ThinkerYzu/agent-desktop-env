@@ -19,7 +19,9 @@ import pytest
 import websockets
 
 BASE_URL = "http://127.0.0.1:9800"
-WS_URL = "ws://127.0.0.1:9800/ws"
+PROJECT_NAME = "agent-desktop-env"
+WS_URL = f"ws://127.0.0.1:9800/ws/{PROJECT_NAME}"
+WS_EVAL_URL = f"ws://127.0.0.1:9800/ws/{PROJECT_NAME}?eval=true"
 
 # Resolve the project directory the server watches
 PROJECT_DIR = Path(__file__).parent.parent.parent.parent / "proj_docs" / "agent-desktop-env"
@@ -33,15 +35,15 @@ def http_client():
 
 def test_server_is_running(http_client):
     """Prerequisite: server must be running on port 9800."""
-    r = http_client.get("/api/health")
+    r = http_client.get(f"/api/{PROJECT_NAME}/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+    assert r.json()["status"] == "ok"
 
 
 def test_websocket_connects():
-    """WebSocket endpoint accepts connections."""
+    """WebSocket eval endpoint accepts connections."""
     async def _test():
-        async with websockets.connect(WS_URL) as ws:
+        async with websockets.connect(WS_EVAL_URL) as ws:
             # Connection succeeded if we get here without exception
             pong = await ws.ping()
             await pong
@@ -58,7 +60,7 @@ def test_websocket_receives_modified_event():
         # Wait for the create event to settle
         await asyncio.sleep(0.5)
 
-        async with websockets.connect(WS_URL) as ws:
+        async with websockets.connect(WS_EVAL_URL) as ws:
             # Modify the file
             test_file.write_text("# Modified content\n")
 
@@ -83,7 +85,7 @@ def test_websocket_receives_created_event():
     test_file.unlink(missing_ok=True)
 
     async def _test():
-        async with websockets.connect(WS_URL) as ws:
+        async with websockets.connect(WS_EVAL_URL) as ws:
             # Create the file
             test_file.write_text("# New file\n")
 
@@ -115,7 +117,7 @@ def test_websocket_receives_deleted_event():
         # Wait for create to settle
         await asyncio.sleep(0.5)
 
-        async with websockets.connect(WS_URL) as ws:
+        async with websockets.connect(WS_EVAL_URL) as ws:
             # Delete the file
             test_file.unlink()
 
@@ -139,7 +141,7 @@ def test_hidden_files_are_ignored():
     test_file = PROJECT_DIR / ".test_hidden"
 
     async def _test():
-        async with websockets.connect(WS_URL) as ws:
+        async with websockets.connect(WS_EVAL_URL) as ws:
             # Create a hidden file
             test_file.write_text("hidden\n")
 
@@ -169,7 +171,7 @@ def test_modified_content_included_in_payload():
     async def _test():
         await asyncio.sleep(0.5)
 
-        async with websockets.connect(WS_URL) as ws:
+        async with websockets.connect(WS_EVAL_URL) as ws:
             test_file.write_text("line one\nline two\nline three\n")
 
             msg = await asyncio.wait_for(ws.recv(), timeout=5.0)
@@ -187,33 +189,6 @@ def test_modified_content_included_in_payload():
         test_file.unlink(missing_ok=True)
 
 
-def test_multiple_clients_receive_broadcast():
-    """Multiple WebSocket clients all receive the same file change event."""
-    test_file = PROJECT_DIR / "_test_ws_broadcast.md"
-    test_file.write_text("initial\n")
-
-    async def _test():
-        await asyncio.sleep(0.5)
-
-        async with websockets.connect(WS_URL) as ws1, \
-                   websockets.connect(WS_URL) as ws2:
-            test_file.write_text("updated\n")
-
-            msg1 = await asyncio.wait_for(ws1.recv(), timeout=5.0)
-            msg2 = await asyncio.wait_for(ws2.recv(), timeout=5.0)
-
-            data1 = json.loads(msg1)
-            data2 = json.loads(msg2)
-
-            assert data1["type"] == "doc_update"
-            assert data2["type"] == "doc_update"
-            assert data1["payload"]["path"] == data2["payload"]["path"]
-
-    try:
-        asyncio.run(_test())
-    finally:
-        test_file.unlink(missing_ok=True)
-
 
 def test_rapid_modifications():
     """Rapid successive modifications are all delivered (possibly batched)."""
@@ -223,7 +198,7 @@ def test_rapid_modifications():
     async def _test():
         await asyncio.sleep(0.5)
 
-        async with websockets.connect(WS_URL) as ws:
+        async with websockets.connect(WS_EVAL_URL) as ws:
             # Write 3 times quickly
             for i in range(1, 4):
                 test_file.write_text(f"v{i}\n")

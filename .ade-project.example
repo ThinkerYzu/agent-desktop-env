@@ -1,0 +1,6 @@
+{
+  "title": "My Project",
+  "description": "A sample project for ADE",
+  "init_file": "AGENT-warm-up.md",
+  "exclude_patterns": ["node_modules", "*.log", "__pycache__"]
+}

@@ -19,6 +19,9 @@ class ConnectionManager:
         # should still be shown, even if the final streaming=False
         # message was dropped because the old ws was already gone.
         self._turn_active: bool = False
+        # Eval-only connections (tests).  These don't displace the active
+        # browser and only receive eval_result messages forwarded from it.
+        self._eval_connections: list[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -48,8 +51,17 @@ class ConnectionManager:
         if self._active_ws is websocket:
             self._active_ws = None
 
+    async def connect_eval(self, websocket: WebSocket):
+        """Connect a test eval client without displacing the active browser."""
+        await websocket.accept()
+        self._eval_connections.append(websocket)
+
+    def disconnect_eval(self, websocket: WebSocket):
+        if websocket in self._eval_connections:
+            self._eval_connections.remove(websocket)
+
     async def broadcast(self, message: str):
-        """Send a message to all connected clients."""
+        """Send a message to all connected clients, including eval connections."""
         disconnected = []
         for ws in self.connections:
             try:
@@ -59,6 +71,16 @@ class ConnectionManager:
 
         for ws in disconnected:
             self.disconnect(ws)
+
+        eval_disconnected = []
+        for ws in self._eval_connections:
+            try:
+                await ws.send_text(message)
+            except Exception:
+                eval_disconnected.append(ws)
+
+        for ws in eval_disconnected:
+            self.disconnect_eval(ws)
 
     async def send_to_others(self, sender: WebSocket, message: str):
         """Send a message to all clients except the sender."""
@@ -117,10 +139,24 @@ class ConnectionManager:
             }))
 
         elif msg_type == "eval":
-            await self.send_to_others(websocket, data)
+            if websocket in self._eval_connections:
+                # eval from test client → relay to the active browser
+                if self._active_ws:
+                    await self.send_to(self._active_ws, data)
+            else:
+                # eval from browser → relay to eval clients
+                for ws in list(self._eval_connections):
+                    await self.send_to(ws, data)
 
         elif msg_type == "eval_result":
-            await self.send_to_others(websocket, data)
+            if websocket not in self._eval_connections:
+                # eval_result from browser → relay to all eval clients
+                for ws in list(self._eval_connections):
+                    await self.send_to(ws, data)
+            else:
+                # eval_result from eval client → relay to active browser
+                if self._active_ws:
+                    await self.send_to(self._active_ws, data)
 
     async def _handle_chat(self, msg: dict):
         """Handle a chat message: dispatch to agent and broadcast response.
