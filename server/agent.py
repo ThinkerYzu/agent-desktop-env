@@ -378,8 +378,13 @@ class AgentRunner:
         self._on_thinking = None
         self._turn_done = None
 
-    async def terminate(self):
-        """Terminate the subprocess (for session reset)."""
+    async def terminate(self, clear_session: bool = True):
+        """Terminate the subprocess.
+
+        Pass clear_session=False during idle cleanup so the next turn can
+        still --resume the conversation (the browser will re-send
+        restore_agent_session on reconnect, but belt-and-suspenders).
+        """
         if self._proc and self._proc.returncode is None:
             self._proc.stdin.close()
             try:
@@ -395,4 +400,5 @@ class AgentRunner:
             except (asyncio.CancelledError, Exception):
                 pass
             self._read_task = None
-        self.session_id = None
+        if clear_session:
+            self.session_id = None

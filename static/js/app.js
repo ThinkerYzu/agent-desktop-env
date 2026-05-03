@@ -12,6 +12,7 @@
   var ws = null;
   var reconnectDelay = 1000;
   var currentSessionId = null;
+  var currentAgentSessionId = null;  // tracked so we can re-send on WS reconnect
   var displaced = false;  // set when the server tells us another tab took over
 
   function connect() {
@@ -29,6 +30,12 @@
       // progress and let the `status` reply drive the indicator.
       if (isReconnect) {
         send({ type: 'status_query' });
+        // Re-sync the agent session so the server resumes the right
+        // conversation even if it restarted or idle-cleaned while we
+        // were disconnected.
+        if (currentAgentSessionId) {
+          send({ type: 'restore_agent_session', payload: { agentSessionId: currentAgentSessionId } });
+        }
       }
     };
 
@@ -208,6 +215,7 @@
 
   function saveAgentSessionId(agentSessionId) {
     if (!currentSessionId) return;
+    currentAgentSessionId = agentSessionId;
     fetch('/api/' + projectName + '/sessions/' + currentSessionId + '/workspace', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -305,6 +313,7 @@
       // process from a previous session is terminated; only pass
       // an agentSessionId if this session has one (otherwise the
       // next message starts a fresh conversation).
+      currentAgentSessionId = session.agentSessionId || null;
       if (session.agentSessionId) {
         send({
           type: 'restore_agent_session',
@@ -321,6 +330,7 @@
       .then(function(r) { return r.json(); })
       .then(function(session) {
         currentSessionId = session.id;
+        currentAgentSessionId = null;
         try { localStorage.setItem('ade_active_session', session.id); } catch (e) {}
         document.getElementById('session-picker').style.display = 'none';
         // Reset agent session so it doesn't --resume the old one

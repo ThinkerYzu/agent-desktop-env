@@ -29,8 +29,12 @@ class ProjectInstance:
         """Check if project has been idle longer than timeout."""
         return (datetime.now() - self.last_activity).total_seconds() > timeout_seconds
 
-    async def shutdown(self):
-        """Clean shutdown of agent, watcher, connections."""
+    async def shutdown(self, clear_session: bool = True):
+        """Clean shutdown of agent, watcher, connections.
+
+        Pass clear_session=False during idle cleanup to preserve session_id
+        so a reconnecting browser can --resume the conversation.
+        """
         # Cancel file watcher
         if self.watcher_task and not self.watcher_task.done():
             self.watcher_task.cancel()
@@ -41,7 +45,7 @@ class ProjectInstance:
 
         # Terminate agent
         if self.agent:
-            await self.agent.terminate()
+            await self.agent.terminate(clear_session=clear_session)
 
         # Close WebSocket connections (disconnect all)
         if self.manager:
@@ -136,7 +140,7 @@ class ProjectManager:
         to_remove = []
         for name, instance in self.projects.items():
             if await instance.is_idle(self.idle_timeout):
-                await instance.shutdown()
+                await instance.shutdown(clear_session=False)
                 to_remove.append(name)
 
         for name in to_remove:
