@@ -139,6 +139,9 @@ class ProjectManager:
         """Cleanup idle projects (called with lock held)."""
         to_remove = []
         for name, instance in self.projects.items():
+            # Never kill a project whose agent is actively processing a turn.
+            if instance.manager._turn_active:
+                continue
             if await instance.is_idle(self.idle_timeout):
                 await instance.shutdown(clear_session=False)
                 to_remove.append(name)
