@@ -270,28 +270,32 @@
         olderCollapseEl.className = 'chat-block-collapse';
         var toggleEl = document.createElement('div');
         toggleEl.className = 'chat-block-collapse-toggle';
-        toggleEl.addEventListener('click', function() {
-          olderCollapseEl.classList.toggle('expanded');
-          updateCollapseToggle();
-        });
+        // Capture the element by value so the handler still works after
+        // finishStreaming() resets the olderCollapseEl module-level variable.
+        (function(collapseEl) {
+          toggleEl.addEventListener('click', function() {
+            collapseEl.classList.toggle('expanded');
+            updateCollapseToggle(collapseEl);
+          });
+        })(olderCollapseEl);
         olderCollapseEl.appendChild(toggleEl);
         // Insert before blocks[hideIdx + 1] (the first block that stays visible)
         parentEl.insertBefore(olderCollapseEl, blocks[hideIdx + 1]);
       }
 
       olderCollapseEl.appendChild(blockToHide);
-      updateCollapseToggle();
+      updateCollapseToggle(olderCollapseEl);
     }
 
     ensureStatusAtBottom();
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
-  function updateCollapseToggle() {
-    if (!olderCollapseEl) return;
-    var hidden = blocks.length - BLOCK_VISIBLE_COUNT;
-    var toggleEl = olderCollapseEl.querySelector('.chat-block-collapse-toggle');
-    toggleEl.textContent = olderCollapseEl.classList.contains('expanded')
+  function updateCollapseToggle(collapseEl) {
+    if (!collapseEl) return;
+    var hidden = collapseEl.children.length - 1; // subtract the toggle button itself
+    var toggleEl = collapseEl.querySelector('.chat-block-collapse-toggle');
+    toggleEl.textContent = collapseEl.classList.contains('expanded')
       ? 'Hide ' + hidden + ' older item' + (hidden > 1 ? 's' : '')
       : '+' + hidden + ' older item' + (hidden > 1 ? 's' : '');
   }
