@@ -3,6 +3,7 @@ import json
 from fastapi import WebSocket
 
 from .agent import AgentRunner
+from . import inhibitor
 
 
 class ConnectionManager:
@@ -254,6 +255,7 @@ class ConnectionManager:
             })
 
         self._turn_active = True
+        inhibitor.acquire()
         try:
             await self.agent.run(
                 prompt,
@@ -267,6 +269,7 @@ class ConnectionManager:
             pass
         finally:
             self._turn_active = False
+            inhibitor.release()
             # Always send a done signal after agent.run() returns so the
             # UI clears the working indicator even if on_done was lost.
             # The client's finishStreaming() is idempotent.  If the ws
