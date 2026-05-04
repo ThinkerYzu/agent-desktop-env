@@ -9,9 +9,11 @@
   var currentAssistantText = '';
   var pendingAnnotation = null;
   var agentStatusEl = null;
-  var toolCallCount = 0;
-  var toolCollapseEl = null;
-  var TOOL_VISIBLE_COUNT = 3;
+  // Per-turn block tracking (tool_use + thinking blocks interleaved)
+  var blocks = [];           // all block elements for the current turn, in order
+  var currentTurnMsgEl = null;  // the .chat-message div for the current turn
+  var olderCollapseEl = null;   // collapse container for older blocks
+  var BLOCK_VISIBLE_COUNT = 3;  // how many most-recent blocks stay visible
 
   // ── Annotation badge ──
 
@@ -114,24 +116,30 @@
     return contentEl;
   }
 
+  function ensureTurnMsg() {
+    if (!currentTurnMsgEl) {
+      currentTurnMsgEl = document.createElement('div');
+      currentTurnMsgEl.className = 'chat-message chat-message-assistant';
+      var roleEl = document.createElement('div');
+      roleEl.className = 'chat-role';
+      roleEl.textContent = 'Agent';
+      currentTurnMsgEl.appendChild(roleEl);
+      messagesEl.appendChild(currentTurnMsgEl);
+    }
+    return currentTurnMsgEl;
+  }
+
   function startStreaming() {
     currentAssistantText = '';
-    toolCallCount = 0;
-    toolCollapseEl = null;
-    var msgEl = document.createElement('div');
-    msgEl.className = 'chat-message chat-message-assistant';
-
-    var roleEl = document.createElement('div');
-    roleEl.className = 'chat-role';
-    roleEl.textContent = 'Agent';
+    blocks = [];
+    olderCollapseEl = null;
+    var msgEl = ensureTurnMsg();
 
     var contentEl = document.createElement('div');
     contentEl.className = 'chat-content';
     contentEl.innerHTML = '<span class="streaming-cursor"></span>';
 
-    msgEl.appendChild(roleEl);
     msgEl.appendChild(contentEl);
-    messagesEl.appendChild(msgEl);
     ensureStatusAtBottom();
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
@@ -140,8 +148,6 @@
 
   function appendStreamChunk(chunk) {
     if (!currentAssistantEl) {
-      toolCallCount = 0;
-      toolCollapseEl = null;
       startStreaming();
     }
     currentAssistantText += chunk;
@@ -169,6 +175,9 @@
       currentAssistantEl = null;
       currentAssistantText = '';
     }
+    currentTurnMsgEl = null;
+    blocks = [];
+    olderCollapseEl = null;
     setInputEnabled(true);
   }
 
@@ -236,27 +245,76 @@
   }
 
   // ── Tool use and thinking display ──
+  //
+  // Thinking and tool blocks are interleaved in arrival order.
+  // The LAST BLOCK_VISIBLE_COUNT blocks are shown directly; older ones are
+  // moved into a collapsible container that sits before the visible blocks.
+  // Each block starts collapsed (header visible, content hidden); clicking
+  // the header expands/collapses it individually.
+  // Tool results are embedded inside their tool_use block so they collapse
+  // and expand together with it.
 
-  function addToolUse(name, input) {
-    // Finish any pending text streaming first
-    if (currentAssistantEl) {
-      if (typeof marked !== 'undefined') {
-        currentAssistantEl.innerHTML = marked.parse(currentAssistantText);
+  function addBlock(wrapper) {
+    var parentEl = ensureTurnMsg();
+    blocks.push(wrapper);
+    parentEl.appendChild(wrapper);
+
+    if (blocks.length > BLOCK_VISIBLE_COUNT) {
+      // The block that just became too old to stay visible
+      var hideIdx = blocks.length - 1 - BLOCK_VISIBLE_COUNT;
+      var blockToHide = blocks[hideIdx];
+
+      if (!olderCollapseEl) {
+        // Create the collapse container and insert it before the oldest visible block
+        olderCollapseEl = document.createElement('div');
+        olderCollapseEl.className = 'chat-block-collapse';
+        var toggleEl = document.createElement('div');
+        toggleEl.className = 'chat-block-collapse-toggle';
+        toggleEl.addEventListener('click', function() {
+          olderCollapseEl.classList.toggle('expanded');
+          updateCollapseToggle();
+        });
+        olderCollapseEl.appendChild(toggleEl);
+        // Insert before blocks[hideIdx + 1] (the first block that stays visible)
+        parentEl.insertBefore(olderCollapseEl, blocks[hideIdx + 1]);
       }
+
+      olderCollapseEl.appendChild(blockToHide);
+      updateCollapseToggle();
     }
 
-    toolCallCount++;
+    ensureStatusAtBottom();
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function updateCollapseToggle() {
+    if (!olderCollapseEl) return;
+    var hidden = blocks.length - BLOCK_VISIBLE_COUNT;
+    var toggleEl = olderCollapseEl.querySelector('.chat-block-collapse-toggle');
+    toggleEl.textContent = olderCollapseEl.classList.contains('expanded')
+      ? 'Hide ' + hidden + ' older item' + (hidden > 1 ? 's' : '')
+      : '+' + hidden + ' older item' + (hidden > 1 ? 's' : '');
+  }
+
+  function addToolUse(name, input) {
+    // Snapshot any in-progress text so the tool block appends after it
+    if (currentAssistantEl) {
+      currentAssistantEl.innerHTML = marked.parse(currentAssistantText) +
+        '<span class="streaming-cursor"></span>';
+    }
 
     var wrapper = document.createElement('div');
     wrapper.className = 'chat-tool-use';
 
-    var nameEl = document.createElement('div');
-    nameEl.className = 'chat-tool-name';
-    nameEl.textContent = name;
+    var headerEl = document.createElement('div');
+    headerEl.className = 'chat-tool-name';
+    headerEl.textContent = name;
+    headerEl.addEventListener('click', function() {
+      wrapper.classList.toggle('expanded');
+    });
 
     var inputEl = document.createElement('div');
     inputEl.className = 'chat-tool-input';
-    // Show a brief summary of the input
     var inputText = '';
     if (input) {
       if (input.command) inputText = input.command;
@@ -267,70 +325,21 @@
     }
     inputEl.textContent = inputText;
 
-    nameEl.addEventListener('click', function() {
-      wrapper.classList.toggle('expanded');
-    });
-
-    wrapper.appendChild(nameEl);
+    wrapper.appendChild(headerEl);
     wrapper.appendChild(inputEl);
-
-    // Determine the parent container for this tool block
-    var parentEl;
-    if (currentAssistantEl) {
-      parentEl = currentAssistantEl.parentNode;
-    } else {
-      // Create a container for this turn
-      var msgEl = document.createElement('div');
-      msgEl.className = 'chat-message chat-message-assistant';
-      var roleEl = document.createElement('div');
-      roleEl.className = 'chat-role';
-      roleEl.textContent = 'Agent';
-      msgEl.appendChild(roleEl);
-      messagesEl.appendChild(msgEl);
-      parentEl = msgEl;
-    }
-
-    if (toolCallCount <= TOOL_VISIBLE_COUNT) {
-      parentEl.appendChild(wrapper);
-    } else {
-      // Create or update the collapsed section
-      if (!toolCollapseEl) {
-        toolCollapseEl = document.createElement('div');
-        toolCollapseEl.className = 'chat-tool-collapse';
-        var toggleEl = document.createElement('div');
-        toggleEl.className = 'chat-tool-collapse-toggle';
-        toggleEl.addEventListener('click', function() {
-          toolCollapseEl.classList.toggle('expanded');
-          var hidden = toolCallCount - TOOL_VISIBLE_COUNT;
-          toggleEl.textContent = toolCollapseEl.classList.contains('expanded')
-            ? 'Hide ' + hidden + ' tool' + (hidden > 1 ? 's' : '')
-            : '+' + hidden + ' more tool' + (hidden > 1 ? 's' : '');
-        });
-        toolCollapseEl.appendChild(toggleEl);
-        parentEl.appendChild(toolCollapseEl);
-      }
-      toolCollapseEl.appendChild(wrapper);
-      // Update the toggle text
-      var hidden = toolCallCount - TOOL_VISIBLE_COUNT;
-      var toggleEl = toolCollapseEl.querySelector('.chat-tool-collapse-toggle');
-      toggleEl.textContent = toolCollapseEl.classList.contains('expanded')
-        ? 'Hide ' + hidden + ' tool' + (hidden > 1 ? 's' : '')
-        : '+' + hidden + ' more tool' + (hidden > 1 ? 's' : '');
-    }
-    ensureStatusAtBottom();
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    addBlock(wrapper);
   }
 
   function addToolResult(content) {
-    var resultEl = document.createElement('div');
-    resultEl.className = 'chat-tool-result';
-    resultEl.textContent = content;
-
-    // Find the last tool-use block and insert result after it
-    var toolBlocks = messagesEl.querySelectorAll('.chat-tool-use');
-    if (toolBlocks.length > 0) {
-      var lastTool = toolBlocks[toolBlocks.length - 1];
-      lastTool.parentNode.insertBefore(resultEl, lastTool.nextSibling);
+    // Embed result inside the last tool_use block so it collapses with it
+    for (var i = blocks.length - 1; i >= 0; i--) {
+      if (blocks[i].classList.contains('chat-tool-use')) {
+        var resultEl = document.createElement('div');
+        resultEl.className = 'chat-tool-result';
+        resultEl.textContent = content;
+        blocks[i].appendChild(resultEl);
+        break;
+      }
     }
     ensureStatusAtBottom();
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -343,32 +352,17 @@
     var labelEl = document.createElement('div');
     labelEl.className = 'chat-thinking-label';
     labelEl.textContent = 'Thinking';
+    labelEl.addEventListener('click', function() {
+      wrapper.classList.toggle('expanded');
+    });
 
     var contentEl = document.createElement('div');
     contentEl.className = 'chat-thinking-content';
     contentEl.textContent = text;
 
-    labelEl.addEventListener('click', function() {
-      wrapper.classList.toggle('expanded');
-    });
-
     wrapper.appendChild(labelEl);
     wrapper.appendChild(contentEl);
-
-    if (currentAssistantEl) {
-      currentAssistantEl.parentNode.appendChild(wrapper);
-    } else {
-      var msgEl = document.createElement('div');
-      msgEl.className = 'chat-message chat-message-assistant';
-      var roleEl = document.createElement('div');
-      roleEl.className = 'chat-role';
-      roleEl.textContent = 'Agent';
-      msgEl.appendChild(roleEl);
-      msgEl.appendChild(wrapper);
-      messagesEl.appendChild(msgEl);
-    }
-    ensureStatusAtBottom();
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    addBlock(wrapper);
   }
 
   // Handle incoming chat messages from WebSocket
@@ -406,8 +400,9 @@
     messagesEl.innerHTML = '';
     currentAssistantEl = null;
     currentAssistantText = '';
-    toolCallCount = 0;
-    toolCollapseEl = null;
+    currentTurnMsgEl = null;
+    blocks = [];
+    olderCollapseEl = null;
     agentStatusEl = null;
     setInputEnabled(true);
   }

@@ -296,7 +296,7 @@ html, body {
   background: #1a1a2a;
   border-left: 2px solid #7a8aaa;
   padding: 6px 8px;
-  margin: 4px 0 6px 0;
+  margin: 4px 0 0 0;
   border-radius: 2px;
   font-size: 11px;
   font-family: monospace;
@@ -308,16 +308,17 @@ html, body {
   display: none;
 }
 
-.chat-tool-use.expanded + .chat-tool-result {
+/* Result is embedded inside tool_use; show when tool is expanded */
+.chat-tool-use.expanded .chat-tool-result {
   display: block;
 }
 
-/* Collapsed tool calls */
-.chat-tool-collapse {
+/* Older-items collapse container */
+.chat-block-collapse {
   margin: 4px 0;
 }
 
-.chat-tool-collapse-toggle {
+.chat-block-collapse-toggle {
   color: #89d185;
   font-size: 12px;
   cursor: pointer;
@@ -325,16 +326,18 @@ html, body {
   opacity: 0.8;
 }
 
-.chat-tool-collapse-toggle:hover {
+.chat-block-collapse-toggle:hover {
   opacity: 1;
   text-decoration: underline;
 }
 
-.chat-tool-collapse .chat-tool-use {
+.chat-block-collapse > .chat-tool-use,
+.chat-block-collapse > .chat-thinking {
   display: none;
 }
 
-.chat-tool-collapse.expanded .chat-tool-use {
+.chat-block-collapse.expanded > .chat-tool-use,
+.chat-block-collapse.expanded > .chat-thinking {
   display: block;
 }
 
