@@ -365,7 +365,7 @@
     addBlock(wrapper);
   }
 
-  // Handle incoming chat messages from WebSocket
+  // Handle incoming chat messages from WebSocket (live path — also saves to session)
   function handleChat(payload) {
     if (payload.role === 'assistant') {
       if (payload.streaming) {
@@ -375,10 +375,19 @@
       }
     } else if (payload.role === 'tool_use') {
       addToolUse(payload.name, payload.input);
+      if (window.App && window.App.saveMessage) {
+        window.App.saveMessage('tool_use', '', null, { name: payload.name, input: payload.input });
+      }
     } else if (payload.role === 'tool_result') {
       addToolResult(payload.content);
+      if (window.App && window.App.saveMessage) {
+        window.App.saveMessage('tool_result', payload.content);
+      }
     } else if (payload.role === 'thinking') {
       addThinking(payload.content);
+      if (window.App && window.App.saveMessage) {
+        window.App.saveMessage('thinking', payload.content);
+      }
     }
   }
 
@@ -391,9 +400,28 @@
     }
   });
 
-  // Restore a message from a saved session (no streaming, no saving)
-  function addRestoredMessage(role, content, annotation) {
-    addMessage(role, content, annotation || null);
+  // Restore a message from a saved session (render only — no saving)
+  function addRestoredMessage(msg) {
+    var role = msg.role;
+    if (role === 'user') {
+      // User message starts a new turn; reset any pending block state first
+      currentTurnMsgEl = null;
+      blocks = [];
+      olderCollapseEl = null;
+      addMessage('user', msg.content, msg.annotation || null);
+    } else if (role === 'assistant') {
+      addMessage('assistant', msg.content, null);
+      // Assistant message ends the turn
+      currentTurnMsgEl = null;
+      blocks = [];
+      olderCollapseEl = null;
+    } else if (role === 'tool_use') {
+      addToolUse(msg.name, msg.input);
+    } else if (role === 'tool_result') {
+      addToolResult(msg.content);
+    } else if (role === 'thinking') {
+      addThinking(msg.content);
+    }
   }
 
   function reset() {

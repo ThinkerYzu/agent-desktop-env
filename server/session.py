@@ -71,8 +71,12 @@ def save_session(project_name: str, session: dict):
     _save(project_name, session)
 
 
-def add_message(project_name: str, session_id: str, role: str, content: str, annotation=None):
-    """Add a message to a session and save."""
+def add_message(project_name: str, session_id: str, role: str, content: str,
+                annotation=None, extra: dict = None):
+    """Add a message to a session and save.
+
+    extra holds role-specific fields (e.g. name+input for tool_use).
+    """
     session = get_session(project_name, session_id)
     if not session:
         return None
@@ -84,6 +88,8 @@ def add_message(project_name: str, session_id: str, role: str, content: str, ann
     }
     if annotation:
         msg["annotation"] = annotation
+    if extra:
+        msg.update(extra)
 
     session["messages"].append(msg)
     save_session(project_name, session)

@@ -227,12 +227,14 @@
     });
   }
 
-  function saveMessageToSession(role, content, annotation) {
+  function saveMessageToSession(role, content, annotation, extra) {
     if (!currentSessionId) return;
+    var body = { role: role, content: content, annotation: annotation || null };
+    if (extra) Object.assign(body, extra);
     fetch('/api/' + projectName + '/sessions/' + currentSessionId + '/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: role, content: content, annotation: annotation || null }),
+      body: JSON.stringify(body),
     });
   }
 
@@ -296,7 +298,7 @@
       messagesEl.innerHTML = '';
       session.messages.forEach(function(msg) {
         if (window.Chat && window.Chat.addRestoredMessage) {
-          window.Chat.addRestoredMessage(msg.role, msg.content, msg.annotation);
+          window.Chat.addRestoredMessage(msg);
         }
       });
 

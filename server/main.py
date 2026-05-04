@@ -179,12 +179,15 @@ async def get_session(project_name: str, session_id: str):
 @app.post("/api/{project_name}/sessions/{session_id}/messages")
 async def add_session_message(project_name: str, session_id: str, body: dict):
     """Add a message to a session."""
+    known = {"role", "content", "annotation"}
+    extra = {k: v for k, v in body.items() if k not in known} or None
     session = session_store.add_message(
         project_name,
         session_id,
         body.get("role", "user"),
         body.get("content", ""),
         body.get("annotation"),
+        extra,
     )
     if not session:
         return PlainTextResponse("Not found", status_code=404)
