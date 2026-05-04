@@ -303,6 +303,116 @@ class TestSessionPicker:
         """)
         assert visible == "hidden"
 
+    def test_new_session_inherits_open_tabs(self, client, http):
+        """Creating a new session keeps the currently open tabs visible."""
+        # Start clean
+        client.eval_js("localStorage.clear()")
+        client.eval_js("location.reload(true)")  # hard reload to bypass JS cache
+        time.sleep(2)
+        # Dismiss picker if shown
+        client.eval_js("""
+          (function() {
+            var picker = document.getElementById('session-picker');
+            if (picker && picker.style.display !== 'none') {
+              document.getElementById('session-new').click();
+            }
+          })()
+        """)
+        time.sleep(0.5)
+
+        prev_session_id = client.eval_js("window.App.getSessionId()")
+
+        # Open two files
+        open_file(client, "SPEC.md")
+        open_file(client, "DESIGN.md")
+
+        tabs_before = client.eval_js("""
+          (function() {
+            var tabs = document.querySelectorAll('.doc-tab-name');
+            return Array.from(tabs).map(function(t) { return t.textContent; }).join(',');
+          })()
+        """)
+        assert "SPEC.md" in tabs_before
+        assert "DESIGN.md" in tabs_before
+
+        # Create new session via picker
+        client.eval_js("""
+          (function() {
+            var btn = document.getElementById('session-switch');
+            if (btn) btn.click();
+          })()
+        """)
+        time.sleep(0.3)
+        client.eval_js("document.getElementById('session-new').click()")
+        time.sleep(1)
+
+        new_session_id = client.eval_js("window.App.getSessionId()")
+        assert new_session_id != prev_session_id, "Session ID should have changed"
+
+        # Tabs should still be open in the new session
+        tabs_after = client.eval_js("""
+          (function() {
+            var tabs = document.querySelectorAll('.doc-tab-name');
+            return Array.from(tabs).map(function(t) { return t.textContent; }).join(',');
+          })()
+        """)
+        assert "SPEC.md" in tabs_after, f"SPEC.md tab missing after new session; tabs={tabs_after}"
+        assert "DESIGN.md" in tabs_after, f"DESIGN.md tab missing after new session; tabs={tabs_after}"
+
+        # Cleanup
+        for sid in [prev_session_id, new_session_id]:
+            if sid:
+                (SESSIONS_DIR / f"{sid}.json").unlink(missing_ok=True)
+
+    def test_new_session_tabs_survive_reload(self, client, http):
+        """Tabs inherited by a new session are restored after a page reload."""
+        # Start clean
+        client.eval_js("localStorage.clear()")
+        client.eval_js("location.reload()")
+        time.sleep(2)
+        client.eval_js("""
+          (function() {
+            var picker = document.getElementById('session-picker');
+            if (picker && picker.style.display !== 'none') {
+              document.getElementById('session-new').click();
+            }
+          })()
+        """)
+        time.sleep(0.5)
+
+        # Open a file
+        open_file(client, "SPEC.md")
+
+        # Create new session
+        client.eval_js("""
+          (function() {
+            var btn = document.getElementById('session-switch');
+            if (btn) btn.click();
+          })()
+        """)
+        time.sleep(0.3)
+        client.eval_js("document.getElementById('session-new').click()")
+        time.sleep(1)
+
+        new_session_id = client.eval_js("window.App.getSessionId()")
+
+        # Reload the page
+        client.eval_js("location.reload()")
+        time.sleep(2)
+
+        # Tab should still be open after reload
+        tabs = client.eval_js("""
+          (function() {
+            var tabs = document.querySelectorAll('.doc-tab-name');
+            return Array.from(tabs).map(function(t) { return t.textContent; }).join(',');
+          })()
+        """)
+        assert "SPEC.md" in tabs, f"SPEC.md tab lost after reload; tabs={tabs}"
+
+        # Cleanup
+        if new_session_id:
+            (SESSIONS_DIR / f"{new_session_id}.json").unlink(missing_ok=True)
+
 
 # ── Session Persistence Integration Tests ──
 
