@@ -76,6 +76,10 @@ Each project gets isolated sessions, its own agent process, and independent file
 | `ADE_PROJECT_IDLE_TIMEOUT` | `1800` | Seconds before cleaning up idle project resources (30 min) |
 | `ADE_MAX_ACTIVE_PROJECTS` | `10` | Maximum simultaneously active projects (multi-project mode) |
 
+### Agent Working Directory
+
+The Claude Code subprocess runs with the **project directory** as its working directory — not the multi-project root. In single-project mode that is the path you passed to `run.sh` (or `ADE_PROJECT_DIR`). In multi-project mode each project's agent uses its own subdirectory, so relative file paths, Bash commands, and file reads/writes all resolve against that project's root.
+
 ### Agent Warm-Up
 
 When a new chat session starts, the agent automatically reads the file specified by `ADE_INIT_FILE` (relative to the project directory). This lets you give the agent background on your project — architecture, conventions, current status — so it's productive from the first message. Create an `AGENT-warm-up.md` in your project root, or point `ADE_INIT_FILE` to any file you prefer.
