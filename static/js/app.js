@@ -375,7 +375,7 @@
           var prompt = 'Read ' + cfg.init_file + ' and follow its instructions.';
           // Show as a system-style message in chat
           if (window.Chat && window.Chat.addRestoredMessage) {
-            window.Chat.addRestoredMessage('user', prompt);
+            window.Chat.addRestoredMessage({ role: 'user', content: prompt });
           }
           // Save to session
           saveMessageToSession('user', prompt);
@@ -467,12 +467,9 @@
 
   // Wire up session picker buttons
   document.getElementById('session-new').addEventListener('click', function() {
-    // Clear chat and close tabs for fresh session
+    // Clear chat messages only; tabs are inherited by the new session
     document.getElementById('chat-messages').innerHTML = '';
-    if (window.DocPanel) {
-      var tabs = window.DocPanel.getOpenTabs();
-      tabs.forEach(function(p) { window.DocPanel.closeFile(p); });
-    }
+    if (window.Chat && window.Chat.reset) window.Chat.reset();
     startNewSession();
   });
   document.getElementById('session-picker-close').addEventListener('click', function() {
