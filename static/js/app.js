@@ -328,12 +328,37 @@
   }
 
   function startNewSession() {
+    // Snapshot current workspace before switching sessions so the new session
+    // inherits open tabs and scroll positions.
+    var inheritedWs = null;
+    if (window.DocPanel) {
+      inheritedWs = {
+        openTabs: window.DocPanel.getOpenTabs(),
+        activeTab: window.DocPanel.getActiveTab(),
+        scrollPositions: window.DocPanel.getScrollPositions ? window.DocPanel.getScrollPositions() : {},
+      };
+    }
+
     fetch('/api/' + projectName + '/sessions', { method: 'POST' })
       .then(function(r) { return r.json(); })
       .then(function(session) {
         currentSessionId = session.id;
         currentAgentSessionId = null;
         try { localStorage.setItem('ade_active_session', session.id); } catch (e) {}
+
+        // Persist inherited workspace so a page reload restores the same tabs
+        if (inheritedWs && inheritedWs.openTabs && inheritedWs.openTabs.length > 0) {
+          // localStorage (includes scroll positions)
+          var key = workspaceKey();
+          try { localStorage.setItem(key, JSON.stringify(inheritedWs)); } catch (e) {}
+          // Server (open tabs + active tab, no scroll positions)
+          fetch('/api/' + projectName + '/sessions/' + currentSessionId + '/workspace', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ openTabs: inheritedWs.openTabs, activeTab: inheritedWs.activeTab }),
+          });
+        }
+
         document.getElementById('session-picker').style.display = 'none';
         // Reset agent session so it doesn't --resume the old one
         send({ type: 'reset_agent_session' });
