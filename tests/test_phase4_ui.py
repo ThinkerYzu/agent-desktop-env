@@ -324,3 +324,80 @@ class TestToolCallCollapse:
             "document.querySelector('.chat-tool-collapse-toggle').textContent"
         )
         assert "+1 more tool" == toggle_text
+
+
+class TestChatAutoScroll:
+    """Auto-scroll only fires when the panel is already at the bottom."""
+
+    def _fill_chat(self, client, count=25):
+        """Reset chat and add enough messages to make the panel scrollable."""
+        client.eval_js("""
+          (function() {
+            Chat.reset();
+            for (var i = 1; i <= 25; i++) {
+              Chat.addRestoredMessage({
+                role: i % 2 === 0 ? 'assistant' : 'user',
+                content: 'Message ' + i + ': padding to make this message tall. '.repeat(4)
+              });
+            }
+          })()
+        """)
+
+    def test_no_scroll_when_scrolled_up(self, client):
+        """When scrolled up, adding new messages does not move the scroll position."""
+        self._fill_chat(client)
+
+        # Scroll up to a non-bottom position and confirm the panel is scrollable
+        info = json.loads(client.eval_js("""
+          (function() {
+            var el = document.getElementById('chat-messages');
+            el.scrollTop = 1200;
+            return JSON.stringify({ top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight });
+          })()
+        """))
+        assert info['height'] > info['top'] + info['client'] + 50, \
+            "Panel is not scrollable enough for this test"
+
+        # Add 3 more messages — scrollTop must not change
+        result = json.loads(client.eval_js("""
+          (function() {
+            var el = document.getElementById('chat-messages');
+            var before = el.scrollTop;
+            for (var i = 0; i < 3; i++) {
+              Chat.addRestoredMessage({
+                role: 'assistant',
+                content: 'New message while scrolled up. '.repeat(4)
+              });
+            }
+            return JSON.stringify({ before: before, after: el.scrollTop });
+          })()
+        """))
+        assert result['after'] == result['before'], (
+            f"Panel should not scroll when user is scrolled up: "
+            f"before={result['before']} after={result['after']}"
+        )
+
+    def test_auto_scroll_when_at_bottom(self, client):
+        """When at the bottom, adding new messages keeps the panel scrolled to the bottom."""
+        self._fill_chat(client)
+
+        # Snap to bottom, then add messages
+        result = json.loads(client.eval_js("""
+          (function() {
+            var el = document.getElementById('chat-messages');
+            el.scrollTop = el.scrollHeight;
+            var before = el.scrollTop;
+            for (var i = 0; i < 3; i++) {
+              Chat.addRestoredMessage({
+                role: 'assistant',
+                content: 'New message while at the bottom. '.repeat(6)
+              });
+            }
+            var atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 10;
+            return JSON.stringify({ before: before, after: el.scrollTop, atBottom: atBottom });
+          })()
+        """))
+        assert result['atBottom'], (
+            f"Panel should stay at bottom after new messages: "
+            f"before={result['before']} after={result['after']}"
+        )
