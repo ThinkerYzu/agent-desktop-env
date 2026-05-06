@@ -234,6 +234,33 @@ class TestAnnotation:
 
 class TestSessionPicker:
 
+    def test_scroll_to_bottom_on_session_restore(self, client, http):
+        """After reload, the chat panel is scrolled to the bottom even with many messages."""
+        s = http.post(API_SESSIONS).json()
+        try:
+            # Add enough messages to make the panel scrollable
+            for i in range(20):
+                role = "user" if i % 2 == 0 else "assistant"
+                http.post(f"{API_SESSIONS}/{s['id']}/messages",
+                          json={"role": role, "content": f"Message {i+1}: " + "padding " * 20})
+
+            # Point localStorage at this session and reload
+            client.eval_js(f"localStorage.setItem('ade_active_session', '{s['id']}')")
+            client.eval_js("location.reload()")
+            time.sleep(2)
+
+            # Panel must be at (or within 10px of) the bottom
+            at_bottom = client.eval_js("""
+              (function() {
+                var el = document.getElementById('chat-messages');
+                return el.scrollHeight - el.scrollTop - el.clientHeight < 10;
+              })()
+            """)
+            assert at_bottom == "true" or at_bottom is True, \
+                "Chat panel should be scrolled to the bottom after session restore"
+        finally:
+            (SESSIONS_DIR / f"{s['id']}.json").unlink(missing_ok=True)
+
     def test_auto_resumes_last_session(self, client, http):
         """On page load, auto-resumes the most recent session without showing picker."""
         # Create a session with a message

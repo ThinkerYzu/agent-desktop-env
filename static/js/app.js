@@ -301,6 +301,9 @@
           window.Chat.addRestoredMessage(msg);
         }
       });
+      // After restore the panel starts at scrollTop=0; scroll to the bottom
+      // unconditionally so the user sees the most recent messages.
+      messagesEl.scrollTop = messagesEl.scrollHeight;
 
       // Restore workspace — prefer localStorage (has scroll positions), fall back to server
       var localWs = loadWorkspaceFromLocal();
