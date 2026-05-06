@@ -6,6 +6,16 @@
   var sendBtn = document.getElementById('chat-send');
   var inputArea = document.getElementById('chat-input-area');
   var currentAssistantEl = null;
+
+  function isAtBottom() {
+    return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 10;
+  }
+
+  // Scroll only if the panel was already at the bottom before the DOM mutation.
+  // Callers must snapshot isAtBottom() *before* mutating the DOM and pass it here.
+  function scrollToBottomIfNeeded(wasAtBottom) {
+    if (wasAtBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
   var currentAssistantText = '';
   var pendingAnnotation = null;
   var agentStatusEl = null;
@@ -110,8 +120,9 @@
     }
 
     msgEl.appendChild(contentEl);
+    var atBottom = isAtBottom();
     messagesEl.appendChild(msgEl);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    scrollToBottomIfNeeded(atBottom);
 
     return contentEl;
   }
@@ -139,9 +150,10 @@
     contentEl.className = 'chat-content';
     contentEl.innerHTML = '<span class="streaming-cursor"></span>';
 
+    var atBottom = isAtBottom();
     msgEl.appendChild(contentEl);
     ensureStatusAtBottom();
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    scrollToBottomIfNeeded(atBottom);
 
     currentAssistantEl = contentEl;
   }
@@ -151,6 +163,7 @@
       startStreaming();
     }
     currentAssistantText += chunk;
+    var atBottom = isAtBottom();
     if (typeof marked !== 'undefined') {
       currentAssistantEl.innerHTML = marked.parse(currentAssistantText) +
         '<span class="streaming-cursor"></span>';
@@ -158,7 +171,7 @@
       currentAssistantEl.textContent = currentAssistantText;
     }
     ensureStatusAtBottom();
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    scrollToBottomIfNeeded(atBottom);
   }
 
   function finishStreaming() {
@@ -206,8 +219,9 @@
           '<span class="agent-status-dot"></span>' +
           '<span class="agent-status-text">Working</span>';
       }
+      var atBottom = isAtBottom();
       messagesEl.appendChild(agentStatusEl);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      scrollToBottomIfNeeded(atBottom);
     }
   }
 
@@ -256,6 +270,7 @@
 
   function addBlock(wrapper) {
     var parentEl = ensureTurnMsg();
+    var atBottom = isAtBottom();
     blocks.push(wrapper);
     parentEl.appendChild(wrapper);
 
@@ -288,7 +303,7 @@
     }
 
     ensureStatusAtBottom();
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    scrollToBottomIfNeeded(atBottom);
   }
 
   function updateCollapseToggle(collapseEl) {
@@ -335,6 +350,7 @@
   }
 
   function addToolResult(content) {
+    var atBottom = isAtBottom();
     // Embed result inside the last tool_use block so it collapses with it
     for (var i = blocks.length - 1; i >= 0; i--) {
       if (blocks[i].classList.contains('chat-tool-use')) {
@@ -346,7 +362,7 @@
       }
     }
     ensureStatusAtBottom();
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    scrollToBottomIfNeeded(atBottom);
   }
 
   function addThinking(text) {
