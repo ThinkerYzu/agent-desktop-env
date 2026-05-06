@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>README – -</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {  background-color: #f8f8f8; }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ef2929; } /* Alert */
+    code span.an { color: #8f5902; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #204a87; } /* Attribute */
+    code span.bn { color: #0000cf; } /* BaseN */
+    code span.cf { color: #204a87; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4e9a06; } /* Char */
+    code span.cn { color: #8f5902; } /* Constant */
+    code span.co { color: #8f5902; font-style: italic; } /* Comment */
+    code span.cv { color: #8f5902; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #8f5902; font-weight: bold; font-style: italic; } /* Documentation */
+    code span.dt { color: #204a87; } /* DataType */
+    code span.dv { color: #0000cf; } /* DecVal */
+    code span.er { color: #a40000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #0000cf; } /* Float */
+    code span.fu { color: #204a87; font-weight: bold; } /* Function */
+    code span.im { } /* Import */
+    code span.in { color: #8f5902; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #204a87; font-weight: bold; } /* Keyword */
+    code span.op { color: #ce5c00; font-weight: bold; } /* Operator */
+    code span.ot { color: #8f5902; } /* Other */
+    code span.pp { color: #8f5902; font-style: italic; } /* Preprocessor */
+    code span.sc { color: #ce5c00; font-weight: bold; } /* SpecialChar */
+    code span.ss { color: #4e9a06; } /* SpecialString */
+    code span.st { color: #4e9a06; } /* String */
+    code span.va { color: #000000; } /* Variable */
+    code span.vs { color: #4e9a06; } /* VerbatimString */
+    code span.wa { color: #8f5902; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="../kb-html/codehilite.css" />
+</head>
+<body>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#agent-desktop-environment"
+id="toc-agent-desktop-environment">Agent Desktop Environment</a>
+<ul>
+<li><a href="#why" id="toc-why">Why</a></li>
+<li><a href="#what-it-does" id="toc-what-it-does">What It Does</a></li>
+<li><a href="#requirements" id="toc-requirements">Requirements</a></li>
+<li><a href="#quick-start" id="toc-quick-start">Quick Start</a>
+<ul>
+<li><a href="#single-project-mode" id="toc-single-project-mode">Single
+Project Mode</a></li>
+<li><a href="#multi-project-mode"
+id="toc-multi-project-mode">Multi-Project Mode</a></li>
+</ul></li>
+<li><a href="#configuration" id="toc-configuration">Configuration</a>
+<ul>
+<li><a href="#agent-working-directory"
+id="toc-agent-working-directory">Agent Working Directory</a></li>
+<li><a href="#agent-warm-up" id="toc-agent-warm-up">Agent
+Warm-Up</a></li>
+<li><a href="#per-project-configuration-.ade-project"
+id="toc-per-project-configuration-.ade-project">Per-Project
+Configuration (<code>.ade-project</code>)</a></li>
+</ul></li>
+<li><a href="#architecture" id="toc-architecture">Architecture</a></li>
+<li><a href="#running-tests" id="toc-running-tests">Running
+Tests</a></li>
+<li><a href="#project-structure" id="toc-project-structure">Project
+Structure</a></li>
+<li><a href="#license" id="toc-license">License</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="agent-desktop-environment">Agent Desktop Environment</h1>
+<p>A web application that puts an AI coding agent and your project
+documents side by side. Browse files, view rendered markdown, and chat
+with a Claude-powered agent — all in one window, with real-time updates
+as files change.</p>
+<p><strong>New:</strong> Multi-project support! Serve multiple projects
+from a single ADE instance with isolated sessions, lazy resource
+management, and automatic mode detection.</p>
+<figure>
+<img src="screenshot.png"
+alt="Screenshot — file tree, document viewer, and chat side by side" />
+<figcaption aria-hidden="true">Screenshot — file tree, document viewer,
+and chat side by side</figcaption>
+</figure>
+<h2 id="why">Why</h2>
+<p>Working with a coding agent today means typing in a terminal while
+switching to an editor or browser to read the documents it produces. You
+can’t point at a paragraph and say “rewrite this” — you have to describe
+it in words. This app eliminates that friction by putting the
+conversation and your project documents side by side, with live
+rendering and a selection-based annotation mechanism that lets you point
+at content directly.</p>
+<h2 id="what-it-does">What It Does</h2>
+<ul>
+<li><strong>Three-panel layout</strong> — file tree on the left,
+document viewer in the center, chat on the right</li>
+<li><strong>Live document rendering</strong> — open markdown files as
+tabs; they re-render automatically when saved (works with any editor,
+git operations, or the agent itself)</li>
+<li><strong>Integrated chat</strong> — converse with a Claude Code agent
+that has full access to your project (file I/O, shell commands,
+etc.)</li>
+<li><strong>Annotation</strong> — select text in a document and it’s
+attached as context to your next message, so the agent knows exactly
+what you’re pointing at</li>
+<li><strong>Session persistence</strong> — conversations are saved and
+resumed automatically; workspace state (open tabs, scroll positions)
+survives page reloads</li>
+</ul>
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li>Python 3.10+</li>
+<li><a href="https://docs.anthropic.com/en/docs/claude-code">Claude
+Code</a> CLI installed and available on <code>PATH</code></li>
+<li>Linux (file watching uses inotify)</li>
+</ul>
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="single-project-mode">Single Project Mode</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/ThinkerYzu/docforge.git</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> <span class="at">-r</span> docforge/template my-project</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">./run.sh</span> my-project</span></code></pre></div>
+<p>This copies a <a
+href="https://github.com/ThinkerYzu/docforge">docforge</a> project
+template, sets up a virtualenv, installs Python dependencies, and starts
+the server at <strong>http://localhost:9800</strong>. The root URL
+redirects to the project, and the agent reads
+<code>AGENT-warm-up.md</code> on the first session.</p>
+<p>You can also point it at any existing directory:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">./run.sh</span> /path/to/your/project</span></code></pre></div>
+<p>Or use an environment variable:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="va">ADE_PROJECT_DIR</span><span class="op">=</span>/path/to/your/project <span class="ex">./run.sh</span></span></code></pre></div>
+<h3 id="multi-project-mode">Multi-Project Mode</h3>
+<p>Serve multiple projects from a single ADE instance:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Point to a directory containing multiple project subdirectories</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="ex">./run.sh</span> /path/to/projects</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Or use environment variable</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="va">ADE_PROJECT_DIR</span><span class="op">=</span>/path/to/projects <span class="ex">./run.sh</span></span></code></pre></div>
+<p>ADE auto-detects the mode:</p>
+<ul>
+<li><strong>Single-project</strong>: Root URL redirects to
+<code>/{project_name}</code></li>
+<li><strong>Multi-project</strong>: Root URL shows a project listing
+page</li>
+</ul>
+<p>Each project gets isolated sessions, its own agent process, and
+independent file watching. Resources are created lazily (only when
+accessed) and cleaned up after idle timeout (default 30 min).</p>
+<h2 id="configuration">Configuration</h2>
+<table>
+<colgroup>
+<col style="width: 31%" />
+<col style="width: 28%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>ADE_PROJECT_DIR</code></td>
+<td>—</td>
+<td>Project directory (single-project) or projects root (multi-project).
+Mode auto-detected.</td>
+</tr>
+<tr class="even">
+<td><code>ADE_PORT</code></td>
+<td><code>9800</code></td>
+<td>Port the server listens on</td>
+</tr>
+<tr class="odd">
+<td><code>ADE_INIT_FILE</code></td>
+<td><code>AGENT-warm-up.md</code></td>
+<td>File the agent reads at the start of each new session. Can be
+overridden per-project via <code>.ade-project</code> file.</td>
+</tr>
+<tr class="even">
+<td><code>ADE_PROJECT_IDLE_TIMEOUT</code></td>
+<td><code>1800</code></td>
+<td>Seconds before cleaning up idle project resources (30 min)</td>
+</tr>
+<tr class="odd">
+<td><code>ADE_MAX_ACTIVE_PROJECTS</code></td>
+<td><code>10</code></td>
+<td>Maximum simultaneously active projects (multi-project mode)</td>
+</tr>
+<tr class="even">
+<td><code>ADE_INHIBIT_SLEEP</code></td>
+<td><code>0</code></td>
+<td>Set to <code>1</code> to hold a GNOME sleep/idle inhibitor while the
+agent is active (prevents suspend mid-response)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="agent-working-directory">Agent Working Directory</h3>
+<p>The Claude Code subprocess runs with the <strong>project
+directory</strong> as its working directory — not the multi-project
+root. In single-project mode that is the path you passed to
+<code>run.sh</code> (or <code>ADE_PROJECT_DIR</code>). In multi-project
+mode each project’s agent uses its own subdirectory, so relative file
+paths, Bash commands, and file reads/writes all resolve against that
+project’s root.</p>
+<h3 id="agent-warm-up">Agent Warm-Up</h3>
+<p>When a new chat session starts, the agent automatically reads the
+file specified by <code>ADE_INIT_FILE</code> (relative to the project
+directory). This lets you give the agent background on your project —
+architecture, conventions, current status — so it’s productive from the
+first message. Create an <code>AGENT-warm-up.md</code> in your project
+root, or point <code>ADE_INIT_FILE</code> to any file you prefer.</p>
+<p>This project is designed to work with <a
+href="https://github.com/ThinkerYzu/docforge">docforge</a>, a doc-driven
+development template for AI-assisted projects. Copy docforge’s template
+into your project directory and the agent will automatically pick up
+<code>AGENT-warm-up.md</code> on each new session — initializing the
+project on the first session, and loading context from
+<code>HANDOFF.md</code> on subsequent sessions.</p>
+<h3 id="per-project-configuration-.ade-project">Per-Project
+Configuration (<code>.ade-project</code>)</h3>
+<p>In multi-project mode, you can customize individual projects by
+adding a <code>.ade-project</code> JSON file to the project root:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;title&quot;</span><span class="fu">:</span> <span class="st">&quot;My Project&quot;</span><span class="fu">,</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;description&quot;</span><span class="fu">:</span> <span class="st">&quot;A custom description shown on the project listing page&quot;</span><span class="fu">,</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;init_file&quot;</span><span class="fu">:</span> <span class="st">&quot;docs/SETUP.md&quot;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p><strong>Fields:</strong></p>
+<ul>
+<li><code>title</code> — Display name (defaults to directory name)</li>
+<li><code>description</code> — Brief description shown on listing
+page</li>
+<li><code>init_file</code> — Override <code>ADE_INIT_FILE</code> for
+this project</li>
+</ul>
+<p><strong>Mode Detection:</strong> The presence of
+<code>.ade-project</code> explicitly marks a directory as a single
+project. ADE also uses heuristics (checks for <code>README.md</code>,
+<code>SPEC.md</code>, <code>DESIGN.md</code>,
+<code>AGENT-warm-up.md</code>, <code>.git</code>) to detect single
+projects vs multi-project roots.</p>
+<h2 id="architecture">Architecture</h2>
+<ul>
+<li><strong>Backend:</strong> FastAPI serves static files, a REST API
+for the file tree, and project-scoped WebSockets for real-time
+communication. ProjectManager handles lazy resource creation and idle
+cleanup.</li>
+<li><strong>Frontend:</strong> Vanilla JS modules with no framework and
+no build step. Markdown is rendered client-side with marked.js. Project
+name extracted from URL path for API routing.</li>
+<li><strong>Agent:</strong> Claude Code CLI runs as a subprocess with
+<code>--input-format stream-json --output-format stream-json</code>,
+giving it full tool access and multi-turn memory. One long-lived process
+per project.</li>
+<li><strong>File watching:</strong> <code>watchfiles</code> (inotify)
+detects saves and pushes updates over WebSocket. One watcher per active
+project, handles atomic writes, debounces rapid events.</li>
+<li><strong>Multi-project:</strong> Resources (agents, file watchers,
+WebSocket connections) are created on demand and cleaned up after idle
+timeout. Sessions stored in nested directories
+(<code>sessions/{project_name}/</code>).</li>
+</ul>
+<h2 id="running-tests">Running Tests</h2>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="bu">source</span> venv/bin/activate</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="ex">pytest</span> tests/</span></code></pre></div>
+<p>Some tests drive the UI via a WebSocket eval channel and require a
+running browser tab. Pass <code>--tab-id &lt;id&gt;</code> to target a
+specific tab.</p>
+<h2 id="project-structure">Project Structure</h2>
+<pre><code>.
+├── run.sh                  # Entry point — venv setup + server launch
+├── requirements.txt        # Python dependencies
+├── server/                 # FastAPI backend
+│   ├── main.py             # App setup, routes, WebSocket, lifespan
+│   ├── agent.py            # Claude Code CLI subprocess management
+│   ├── session.py          # Session persistence (project-scoped)
+│   ├── file_watcher.py     # inotify filesystem watcher (watchfiles)
+│   ├── websocket.py        # WebSocket connection manager
+│   ├── project_manager.py  # Multi-project lifecycle management
+│   └── projects.py         # Project discovery and metadata
+├── static/                 # Frontend (vanilla HTML/CSS/JS, no build step)
+│   ├── index.html          # Three-panel layout (project UI)
+│   ├── projects.html       # Project listing page (multi-project mode)
+│   ├── css/
+│   │   ├── style.css       # Dark-themed styles
+│   │   └── projects.css    # Project listing styles
+│   └── js/
+│       ├── app.js          # Init, WebSocket, workspace restore
+│       ├── filetree.js     # File tree panel
+│       ├── document.js     # Document viewer — tabs, rendering, scroll
+│       ├── chat.js         # Chat — messaging, streaming, annotations
+│       ├── projects.js     # Project listing logic
+│       └── marked.min.js   # Markdown parser (vendored)
+├── tests/                  # Test suite (64 tests)
+└── sessions/               # Saved session files (nested by project)
+    ├── project-a/
+    └── project-b/</code></pre>
+<h2 id="license">License</h2>
+<p><a href="LICENSE">MIT</a></p>
+</body>
+</html>

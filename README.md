@@ -75,6 +75,7 @@ Each project gets isolated sessions, its own agent process, and independent file
 | `ADE_INIT_FILE` | `AGENT-warm-up.md` | File the agent reads at the start of each new session. Can be overridden per-project via `.ade-project` file. |
 | `ADE_PROJECT_IDLE_TIMEOUT` | `1800` | Seconds before cleaning up idle project resources (30 min) |
 | `ADE_MAX_ACTIVE_PROJECTS` | `10` | Maximum simultaneously active projects (multi-project mode) |
+| `ADE_INHIBIT_SLEEP` | `0` | Set to `1` to hold a GNOME sleep/idle inhibitor while the agent is active (prevents suspend mid-response) |
 
 ### Agent Working Directory
 

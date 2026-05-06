@@ -4,12 +4,16 @@ Acquires an org.freedesktop.login1 'sleep:idle' inhibitor while any agent
 turn is active, preventing the desktop from suspending mid-response.
 
 Reference-counted so concurrent multi-project turns don't release each
-other's hold.  All operations are no-ops when D-Bus is unavailable.
+other's hold.  All operations are no-ops when D-Bus is unavailable or when
+ADE_INHIBIT_SLEEP is not set to '1' (disabled by default).
 """
 
 import os
 import sys
 import threading
+
+# Opt-in: set ADE_INHIBIT_SLEEP=1 to enable the sleep/idle inhibitor.
+_enabled: bool = os.environ.get('ADE_INHIBIT_SLEEP', '0') == '1'
 
 _lock = threading.Lock()
 _fd: int | None = None   # raw Unix fd returned by Inhibit(); kept open to hold lock
@@ -49,6 +53,8 @@ def _acquire_fd() -> int | None:
 
 def acquire():
     """Increment refcount; acquire the inhibitor fd on the first call."""
+    if not _enabled:
+        return
     global _fd, _refcount
     with _lock:
         _refcount += 1
@@ -58,6 +64,8 @@ def acquire():
 
 def release():
     """Decrement refcount; release the inhibitor fd when it reaches zero."""
+    if not _enabled:
+        return
     global _fd, _refcount
     with _lock:
         if _refcount > 0:
