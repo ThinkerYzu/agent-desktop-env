@@ -144,13 +144,13 @@
     currentAssistantText = '';
     blocks = [];
     olderCollapseEl = null;
+    var atBottom = isAtBottom();
     var msgEl = ensureTurnMsg();
 
     var contentEl = document.createElement('div');
     contentEl.className = 'chat-content';
     contentEl.innerHTML = '<span class="streaming-cursor"></span>';
 
-    var atBottom = isAtBottom();
     msgEl.appendChild(contentEl);
     ensureStatusAtBottom();
     scrollToBottomIfNeeded(atBottom);
@@ -242,6 +242,8 @@
     if (annotation) {
       payload.annotation = annotation;
     }
+
+    messagesEl.scrollTop = messagesEl.scrollHeight;
 
     window.App.send({
       type: 'chat',

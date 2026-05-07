@@ -401,3 +401,70 @@ class TestChatAutoScroll:
             f"Panel should stay at bottom after new messages: "
             f"before={result['before']} after={result['after']}"
         )
+
+    def test_send_scrolls_to_bottom(self, client):
+        """Sending a message scrolls the panel to the bottom even when scrolled up.
+
+        Regression: sendMessage() called addMessage() and setInputEnabled() with the
+        conditional scroll guard, so a user scrolled up before sending would stay up.
+        Fixed by adding an unconditional scroll in sendMessage() after setInputEnabled().
+        """
+        self._fill_chat(client)
+
+        result = json.loads(client.eval_js("""
+          (function() {
+            var el = document.getElementById('chat-messages');
+            el.scrollTop = 100;  // scroll up, not at bottom
+
+            // Mock App.send and App.saveMessage to avoid real WS traffic
+            var App = window.App || {};
+            var origSend = App.send;
+            var origSave = App.saveMessage;
+            App.send = function() {};
+            App.saveMessage = function() {};
+            window.App = App;
+
+            var input = document.getElementById('chat-input');
+            input.disabled = false;
+            document.getElementById('chat-send').disabled = false;
+            input.value = 'test send scroll';
+            document.getElementById('chat-send').click();
+
+            App.send = origSend;
+            App.saveMessage = origSave;
+
+            var gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+            return JSON.stringify({ gap: gap, scrollTop: el.scrollTop, scrollHeight: el.scrollHeight });
+          })()
+        """))
+        assert result['gap'] < 10, (
+            f"Panel should scroll to bottom on send: "
+            f"gap={result['gap']} scrollTop={result['scrollTop']} scrollHeight={result['scrollHeight']}"
+        )
+
+    def test_streaming_start_stays_at_bottom(self, client):
+        """First streaming chunk keeps the panel at the bottom when already there.
+
+        Regression: startStreaming() called ensureTurnMsg() (which appended the 'Agent'
+        container, growing scrollHeight) *before* taking the isAtBottom() snapshot.
+        The snapshot then saw a gap and skipped the scroll, breaking auto-scroll for
+        the entire streaming turn until the user manually scrolled back down.
+        Fixed by moving the isAtBottom() snapshot before ensureTurnMsg().
+        """
+        self._fill_chat(client)
+
+        result = json.loads(client.eval_js("""
+          (function() {
+            var el = document.getElementById('chat-messages');
+            el.scrollTop = el.scrollHeight;  // snap to bottom
+            Chat.handleChat({role: 'assistant', streaming: true, content: 'first chunk'});
+            Chat.handleChat({role: 'assistant', streaming: false});  // clean up state
+            var gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+            return JSON.stringify({ gap: gap, scrollTop: el.scrollTop, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight });
+          })()
+        """))
+        assert result['gap'] < 10, (
+            f"Panel should stay at bottom when streaming starts: "
+            f"gap={result['gap']} scrollTop={result['scrollTop']} "
+            f"scrollHeight={result['scrollHeight']} clientHeight={result['clientHeight']}"
+        )
