@@ -448,18 +448,18 @@ class TestSessionIntegration:
 
     def test_messages_saved_to_session_file(self, client, http):
         """Chat messages are persisted to session JSON files."""
-        # Start a new session
+        # Always start a fresh session so we know the file exists on the server
         client.eval_js("""
           (function() {
-            var picker = document.getElementById('session-picker');
-            if (picker && picker.style.display !== 'none') {
-              document.getElementById('session-new').click();
-            }
+            var btn = document.getElementById('session-switch');
+            if (btn) btn.click();
           })()
         """)
-        time.sleep(0.5)
+        time.sleep(0.3)
+        client.eval_js("document.getElementById('session-new').click()")
+        time.sleep(1)
 
-        clear_chat(client)
+        client.eval_js("Chat.reset()")
 
         # Get current session ID
         session_id = client.eval_js("window.App.getSessionId()")
@@ -472,7 +472,7 @@ class TestSessionIntegration:
             document.getElementById('chat-send').click();
           })()
         """)
-        time.sleep(1)
+        time.sleep(2)
 
         # Check the session file
         try:

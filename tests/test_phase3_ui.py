@@ -56,12 +56,30 @@ def eval_js(code, timeout=5.0):
     return asyncio.run(browser_eval(code, timeout))
 
 
+def wait_for_page_ready(timeout=10.0):
+    """Poll until the browser's JS is up (App.getSessionId returns a value)."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            result = eval_js(
+                "window.App && window.App.getSessionId ? String(window.App.getSessionId()) : 'null'",
+                timeout=3.0,
+            )
+            if result and result != "null":
+                return
+        except Exception:
+            pass
+        time.sleep(0.3)
+    raise TimeoutError("Page did not become ready after reload")
+
+
 def reload_and_wait():
     """Reload the page with clean state and wait for it to settle."""
     # Clear localStorage to prevent auto-resume restoring stale tabs
     eval_js("localStorage.clear()")
     eval_js("location.reload()")
-    time.sleep(2)
+    # Poll until the page JS is live (avoids brittle fixed sleep)
+    wait_for_page_ready()
     # Dismiss session picker if it appears
     try:
         eval_js("""

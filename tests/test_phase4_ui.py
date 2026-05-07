@@ -242,26 +242,26 @@ class TestToolCallCollapse:
           })()
         """))
         assert visible == 3
-        collapse = client.eval_js("document.querySelector('.chat-tool-collapse-toggle')")
+        collapse = client.eval_js("document.querySelector('.chat-block-collapse-toggle')")
         assert collapse == "null" or collapse is None
 
     def test_six_tools_shows_collapse(self, client):
         """With 6 tool calls, first 3 visible, rest collapsed behind toggle."""
         self._simulate_tool_calls(client, 6)
         toggle_text = client.eval_js(
-            "document.querySelector('.chat-tool-collapse-toggle').textContent"
+            "document.querySelector('.chat-block-collapse-toggle').textContent"
         )
-        assert "+3 more tools" == toggle_text
+        assert "+3 older items" == toggle_text
 
     def test_collapse_toggle_expands(self, client):
         """Clicking the toggle reveals hidden tool calls."""
         self._simulate_tool_calls(client, 5)
         # Click to expand
-        client.eval_js("document.querySelector('.chat-tool-collapse-toggle').click()")
+        client.eval_js("document.querySelector('.chat-block-collapse-toggle').click()")
         toggle_text = client.eval_js(
-            "document.querySelector('.chat-tool-collapse-toggle').textContent"
+            "document.querySelector('.chat-block-collapse-toggle').textContent"
         )
-        assert "Hide 2 tools" == toggle_text
+        assert "Hide 2 older items" == toggle_text
         # All 5 tool-use blocks should now be visible
         visible = int(client.eval_js("""
           (function() {
@@ -277,12 +277,12 @@ class TestToolCallCollapse:
         """Clicking toggle a second time hides tool calls again."""
         self._simulate_tool_calls(client, 5)
         # Expand then collapse
-        client.eval_js("document.querySelector('.chat-tool-collapse-toggle').click()")
-        client.eval_js("document.querySelector('.chat-tool-collapse-toggle').click()")
+        client.eval_js("document.querySelector('.chat-block-collapse-toggle').click()")
+        client.eval_js("document.querySelector('.chat-block-collapse-toggle').click()")
         toggle_text = client.eval_js(
-            "document.querySelector('.chat-tool-collapse-toggle').textContent"
+            "document.querySelector('.chat-block-collapse-toggle').textContent"
         )
-        assert "+2 more tools" == toggle_text
+        assert "+2 older items" == toggle_text
         # Only first 3 visible
         visible = int(client.eval_js("""
           (function() {
@@ -313,7 +313,7 @@ class TestToolCallCollapse:
             )
         # Count collapse toggles — should be only 1 from the first batch
         toggle_count = int(client.eval_js(
-            "document.querySelectorAll('.chat-tool-collapse-toggle').length"
+            "document.querySelectorAll('.chat-block-collapse-toggle').length"
         ))
         assert toggle_count == 1
 
@@ -321,9 +321,9 @@ class TestToolCallCollapse:
         """With exactly 4 tool calls, toggle shows '+1 more tool' (singular)."""
         self._simulate_tool_calls(client, 4)
         toggle_text = client.eval_js(
-            "document.querySelector('.chat-tool-collapse-toggle').textContent"
+            "document.querySelector('.chat-block-collapse-toggle').textContent"
         )
-        assert "+1 more tool" == toggle_text
+        assert "+1 older item" == toggle_text
 
 
 class TestChatAutoScroll:
