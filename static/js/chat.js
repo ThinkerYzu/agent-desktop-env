@@ -11,11 +11,19 @@
     return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 10;
   }
 
-  // Scroll only if the panel was already at the bottom before the DOM mutation.
-  // Callers must snapshot isAtBottom() *before* mutating the DOM and pass it here.
   function scrollToBottomIfNeeded(wasAtBottom) {
     if (wasAtBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
   }
+
+  // Snapshot scroll position before fn() mutates the DOM, then restore the
+  // bottom-anchor if the panel was already at the bottom.  All DOM insertions
+  // that affect chat height must go through this wrapper.
+  function withScrollAnchor(fn) {
+    var atBottom = isAtBottom();
+    fn();
+    scrollToBottomIfNeeded(atBottom);
+  }
+
   var currentAssistantText = '';
   var pendingAnnotation = null;
   var agentStatusEl = null;
@@ -61,7 +69,7 @@
 
       var closeSpan = document.createElement('span');
       closeSpan.className = 'annotation-badge-close';
-      closeSpan.textContent = '\u00D7';
+      closeSpan.textContent = '×';
       closeSpan.addEventListener('click', function(e) {
         e.stopPropagation();
         setAnnotation(null);
@@ -120,9 +128,9 @@
     }
 
     msgEl.appendChild(contentEl);
-    var atBottom = isAtBottom();
-    messagesEl.appendChild(msgEl);
-    scrollToBottomIfNeeded(atBottom);
+    withScrollAnchor(function() {
+      messagesEl.appendChild(msgEl);
+    });
 
     return contentEl;
   }
@@ -144,17 +152,14 @@
     currentAssistantText = '';
     blocks = [];
     olderCollapseEl = null;
-    var atBottom = isAtBottom();
-    var msgEl = ensureTurnMsg();
-
     var contentEl = document.createElement('div');
     contentEl.className = 'chat-content';
     contentEl.innerHTML = '<span class="streaming-cursor"></span>';
-
-    msgEl.appendChild(contentEl);
-    ensureStatusAtBottom();
-    scrollToBottomIfNeeded(atBottom);
-
+    withScrollAnchor(function() {
+      var msgEl = ensureTurnMsg();
+      msgEl.appendChild(contentEl);
+      ensureStatusAtBottom();
+    });
     currentAssistantEl = contentEl;
   }
 
@@ -163,15 +168,15 @@
       startStreaming();
     }
     currentAssistantText += chunk;
-    var atBottom = isAtBottom();
-    if (typeof marked !== 'undefined') {
-      currentAssistantEl.innerHTML = marked.parse(currentAssistantText) +
-        '<span class="streaming-cursor"></span>';
-    } else {
-      currentAssistantEl.textContent = currentAssistantText;
-    }
-    ensureStatusAtBottom();
-    scrollToBottomIfNeeded(atBottom);
+    withScrollAnchor(function() {
+      if (typeof marked !== 'undefined') {
+        currentAssistantEl.innerHTML = marked.parse(currentAssistantText) +
+          '<span class="streaming-cursor"></span>';
+      } else {
+        currentAssistantEl.textContent = currentAssistantText;
+      }
+      ensureStatusAtBottom();
+    });
   }
 
   function finishStreaming() {
@@ -219,9 +224,9 @@
           '<span class="agent-status-dot"></span>' +
           '<span class="agent-status-text">Working</span>';
       }
-      var atBottom = isAtBottom();
-      messagesEl.appendChild(agentStatusEl);
-      scrollToBottomIfNeeded(atBottom);
+      withScrollAnchor(function() {
+        messagesEl.appendChild(agentStatusEl);
+      });
     }
   }
 
@@ -271,41 +276,41 @@
   // and expand together with it.
 
   function addBlock(wrapper) {
-    var parentEl = ensureTurnMsg();
-    var atBottom = isAtBottom();
-    blocks.push(wrapper);
-    parentEl.appendChild(wrapper);
+    withScrollAnchor(function() {
+      var parentEl = ensureTurnMsg();
+      blocks.push(wrapper);
+      parentEl.appendChild(wrapper);
 
-    if (blocks.length > BLOCK_VISIBLE_COUNT) {
-      // The block that just became too old to stay visible
-      var hideIdx = blocks.length - 1 - BLOCK_VISIBLE_COUNT;
-      var blockToHide = blocks[hideIdx];
+      if (blocks.length > BLOCK_VISIBLE_COUNT) {
+        // The block that just became too old to stay visible
+        var hideIdx = blocks.length - 1 - BLOCK_VISIBLE_COUNT;
+        var blockToHide = blocks[hideIdx];
 
-      if (!olderCollapseEl) {
-        // Create the collapse container and insert it before the oldest visible block
-        olderCollapseEl = document.createElement('div');
-        olderCollapseEl.className = 'chat-block-collapse';
-        var toggleEl = document.createElement('div');
-        toggleEl.className = 'chat-block-collapse-toggle';
-        // Capture the element by value so the handler still works after
-        // finishStreaming() resets the olderCollapseEl module-level variable.
-        (function(collapseEl) {
-          toggleEl.addEventListener('click', function() {
-            collapseEl.classList.toggle('expanded');
-            updateCollapseToggle(collapseEl);
-          });
-        })(olderCollapseEl);
-        olderCollapseEl.appendChild(toggleEl);
-        // Insert before blocks[hideIdx + 1] (the first block that stays visible)
-        parentEl.insertBefore(olderCollapseEl, blocks[hideIdx + 1]);
+        if (!olderCollapseEl) {
+          // Create the collapse container and insert it before the oldest visible block
+          olderCollapseEl = document.createElement('div');
+          olderCollapseEl.className = 'chat-block-collapse';
+          var toggleEl = document.createElement('div');
+          toggleEl.className = 'chat-block-collapse-toggle';
+          // Capture the element by value so the handler still works after
+          // finishStreaming() resets the olderCollapseEl module-level variable.
+          (function(collapseEl) {
+            toggleEl.addEventListener('click', function() {
+              collapseEl.classList.toggle('expanded');
+              updateCollapseToggle(collapseEl);
+            });
+          })(olderCollapseEl);
+          olderCollapseEl.appendChild(toggleEl);
+          // Insert before blocks[hideIdx + 1] (the first block that stays visible)
+          parentEl.insertBefore(olderCollapseEl, blocks[hideIdx + 1]);
+        }
+
+        olderCollapseEl.appendChild(blockToHide);
+        updateCollapseToggle(olderCollapseEl);
       }
 
-      olderCollapseEl.appendChild(blockToHide);
-      updateCollapseToggle(olderCollapseEl);
-    }
-
-    ensureStatusAtBottom();
-    scrollToBottomIfNeeded(atBottom);
+      ensureStatusAtBottom();
+    });
   }
 
   function updateCollapseToggle(collapseEl) {
@@ -352,19 +357,19 @@
   }
 
   function addToolResult(content) {
-    var atBottom = isAtBottom();
-    // Embed result inside the last tool_use block so it collapses with it
-    for (var i = blocks.length - 1; i >= 0; i--) {
-      if (blocks[i].classList.contains('chat-tool-use')) {
-        var resultEl = document.createElement('div');
-        resultEl.className = 'chat-tool-result';
-        resultEl.textContent = content;
-        blocks[i].appendChild(resultEl);
-        break;
+    withScrollAnchor(function() {
+      // Embed result inside the last tool_use block so it collapses with it
+      for (var i = blocks.length - 1; i >= 0; i--) {
+        if (blocks[i].classList.contains('chat-tool-use')) {
+          var resultEl = document.createElement('div');
+          resultEl.className = 'chat-tool-result';
+          resultEl.textContent = content;
+          blocks[i].appendChild(resultEl);
+          break;
+        }
       }
-    }
-    ensureStatusAtBottom();
-    scrollToBottomIfNeeded(atBottom);
+      ensureStatusAtBottom();
+    });
   }
 
   function addThinking(text) {
